@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="Prof Francesco — seu professor particular de francês. Aulas online personalizadas para brasileiros." name="description"/>
+<title>
+   Prof Francesco | Seu professor particular de francês
+  </title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Playfair+Display:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<style>
+   :root {
+  --navy:#08264a;
+  --red:#c91f2b;
+  --cream:#fff8ed;
+  --ink:#142b44;
+  --line:#dfd7ca
+}
+* {
+  box-sizing:border-box
+}
+html {
+  scroll-behavior:smooth
+}
+body {
+  margin:0;
+  background:var(--cream);
+  color:var(--ink);
+  font-family:'DM Sans',sans-serif
+}
+a {
+  color:inherit;
+  text-decoration:none
+}
+button,input,select {
+  font:inherit
+}
+button {
+  cursor:pointer
+}
+.hero {
+  position:relative;
+  min-height:920px;
+  background-color:#6ac4f4;
+  background-image:linear-gradient(90deg,rgba(255,248,237,.03),rgba(255,248,237,.08)),url('assets/fundo-paris.webp');
+  background-size:100% 100%,100% 100%;
+  background-position:center,center;
+  background-repeat:no-repeat;
+  overflow:hidden
+}
+.nav {
+  position:relative;
+  z-index:5;
+  max-width:1200px;
+  margin:18px auto 0;
+  padding:13px 22px;
+  background:rgba(255,250,240,.96);
+  border:1px solid #ffffffc9;
+  border-radius:50px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  box-shadow:0 5px 24px #06264820
+}
+.brand {
+  font:700 27px 'Playfair Display',serif;
+  white-space:nowrap;
+  color:var(--navy)
+}
+.brand small {
+  display:block;
+  font:500 11px 'DM Sans',sans-serif;
+  letter-spacing:.03em
+}
+.links {
+  display:flex;
+  gap:22px;
+  align-items:center;
+  font-size:14px;
+  font-weight:700
+}
+.links a:hover {
+  color:var(--red)
+}
+.btn {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:14px 22px;
+  border-radius:30px;
+  border:2px solid var(--navy);
+  font-weight:700;
+  transition:transform .2s,background .2s
+}
+.btn:hover {
+  transform:translateY(-2px)
+}
+.btn.navy {
+  background:var(--navy);
+  color:white
+}
+.btn.red {
+  background:var(--red);
+  border-color:var(--red);
+  color:white
+}
+.btn.light {
+  background:#fff9edec
+}
+.hero-content {
+  position:relative;
+  z-index:2;
+  max-width:1200px;
+  margin:0 auto;
+  min-height:740px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:flex-end;
+  padding:105px 8px 80px
+}
+.hero-copy {
+  width:min(455px,46%);
+  padding:22px;
+  border-radius:24px;
+  background:rgba(255,249,238,.38);
+  border:1px solid rgba(255,255,255,.42);
+  -webkit-backdrop-filter:blur(1.5px);
+  backdrop-filter:blur(1.5px)
+}
+h1,h2,h3 {
+  font-family:'Playfair Display',serif;
+  color:var(--navy)
+}
+h1 {
+  font-size:clamp(34px,3.4vw,51px);
+  line-height:1.07;
+  margin:0 0 22px
+}
+h1 em {
+  font-style:normal;
+  text-decoration:underline;
+  text-decoration-color:var(--red);
+  text-decoration-thickness:5px;
+  text-underline-offset:10px
+}
+.hero-copy p {
+  font-size:16px;
+  line-height:1.5;
+  margin:0 0 25px;
+  font-weight:600
+}
+.actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px
+}
+.portrait {
+  position:absolute;
+  z-index:1;
+  bottom:-15px;
+  left:max(0px,calc((100vw - 1200px)/2 - 40px));
+  height:min(420px,55vw);
+  max-width:52%;
+  object-fit:contain;
+  object-position:bottom;
+  filter:drop-shadow(4px 4px 3px #132d3d40);
+  pointer-events:none
+}
+.benefits {
+  position:relative;
+  z-index:3;
+  max-width:1180px;
+  margin:0 auto 0;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:0;
+  background:#fff9f0;
+  border:1px solid #d5c9b7;
+  border-radius:24px;
+  box-shadow:0 10px 25px #08264a1c;
+  overflow:hidden
+}
+.benefits div {
+  padding:25px 18px;
+  text-align:center;
+  border-right:1px solid var(--line)
+}
+.benefits div:last-child {
+  border:0
+}
+.benefits strong {
+  display:block;
+  color:var(--navy)
+}
+.benefits span {
+  font-size:13px
+}
+.section {
+  max-width:1120px;
+  margin:auto;
+  padding:85px 24px
+}
+.section h2 {
+  font-size:clamp(32px,4vw,48px);
+  margin:0 0 15px
+}
+.muted {
+  color:#546477;
+  line-height:1.7
+}
+.eyebrow {
+  color:var(--red);
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  font-size:12px
+}
+.cards {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+  margin-top:30px
+}
+.card {
+  background:white;
+  padding:28px;
+  border:1px solid var(--line);
+  border-radius:22px;
+  box-shadow:0 5px 18px #08264a0a
+}
+.card h3 {
+  font-size:25px
+}
+.card p {
+  line-height:1.65
+}
+.promo {
+  background:var(--navy);
+  color:white;
+  border-radius:25px;
+  padding:40px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px
+}
+.promo h2 {
+  color:white;
+  margin:8px 0
+}
+.promo p {
+  margin:0
+}
+.booking {
+  background:#f1e9dd
+}
+.booking-grid {
+  display:grid;
+  grid-template-columns:1fr 1.1fr;
+  gap:30px;
+  align-items:start
+}
+.calendar {
+  background:white;
+  border:1px solid var(--line);
+  border-radius:24px;
+  padding:25px
+}
+.cal-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:16px
+}
+.cal-header button {
+  border:1px solid var(--line);
+  background:white;
+  border-radius:9px;
+  padding:8px 12px
+}
+.cal-grid {
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;
+  text-align:center
+}
+.cal-grid .weekday {
+  font-size:12px;
+  font-weight:700;
+  padding:10px 0
+}
+.day {
+  border:0;
+  background:#f6f3ee;
+  border-radius:9px;
+  min-height:40px
+}
+.day:disabled {
+  opacity:.25;
+  cursor:not-allowed
+}
+.day.available {
+  background:#e7f2f7;
+  color:var(--navy);
+  font-weight:700
+}
+.day.selected,.time.selected {
+  background:var(--navy);
+  color:white
+}
+.times {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:15px 0
+}
+.time {
+  border:1px solid #b6c2d0;
+  border-radius:30px;
+  background:white;
+  padding:9px 14px
+}
+.form-fields {
+  display:grid;
+  gap:12px
+}
+.form-fields input,.form-fields select {
+  width:100%;
+  padding:13px;
+  border:1px solid #c8c8c8;
+  border-radius:12px;
+  background:white
+}
+.notice {
+  font-size:13px;
+  line-height:1.5;
+  color:#536172
+}
+.steps {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+  margin-top:25px
+}
+.step {
+  border-top:3px solid var(--red);
+  padding-top:20px
+}
+.step b {
+  color:var(--red)
+}
+footer {
+  background:var(--navy);
+  color:white;
+  text-align:center;
+  padding:35px 20px
+}
+footer strong {
+  font-family:'Playfair Display',serif;
+  font-size:25px
+}
+.faq details {
+  background:white;
+  border:1px solid var(--line);
+  padding:18px 22px;
+  margin:10px 0;
+  border-radius:12px
+}
+.faq summary {
+  cursor:pointer;
+  font-weight:700
+}
+@media(max-width:900px) {
+  .links {
+    display:none
+  }
+  .hero {
+    min-height:800px;
+    background-size:100% 100%,cover;
+    background-position:center,48% 60%
+  }
+  .hero-content {
+    padding-top:65px;
+    justify-content:center
+  }
+  .hero-copy {
+    width:min(90%,455px);
+    margin-left:auto
+  }
+  .portrait {
+    height:330px;
+    max-width:55%;
+    left:-65px
+  }
+  .benefits {
+    margin:-30px 15px 0;
+    grid-template-columns:repeat(2,1fr)
+  }
+  .cards,.steps {
+    grid-template-columns:1fr
+  }
+  .booking-grid {
+    grid-template-columns:1fr
+  }
+}
+@media(max-width:620px) {
+  .nav {
+    margin:10px;
+    border-radius:22px;
+    padding:12px
+  }
+  .brand {
+    font-size:21px
+  }
+  .nav>.btn {
+    font-size:12px;
+    padding:10px
+  }
+  .hero {
+    min-height:780px;
+    background-size:100% 100%,cover;
+    background-position:center,43% 60%
+  }
+  .hero-content {
+    padding:42px 12px 0;
+    min-height:470px
+  }
+  .hero-copy {
+    width:100%;
+    padding:18px;
+    background:#fff9edda
+  }
+  .hero-copy p {
+    font-size:16px
+  }
+  h1 {
+    font-size:36px
+  }
+  .portrait {
+    height:280px;
+    max-width:70%;
+    bottom:0;
+    left:-35px
+  }
+  .benefits {
+    grid-template-columns:repeat(2,1fr)
+  }
+  .benefits div {
+    padding:17px 9px
+  }
+  .promo {
+    display:block;
+    padding:28px
+  }
+  .promo .btn {
+    margin-top:22px
+  }
+  .section {
+    padding:60px 20px
+  }
+  .calendar {
+    padding:15px
+  }
+  .day {
+    min-height:35px
+  }
+}
+  
+/* Paisagem de Montmartre atrás dos cursos e da promoção. */
+.montmartre-background {
+  background-image: linear-gradient(180deg, rgba(255,248,237,.30), rgba(255,248,237,.18)), url("assets/montmartre.webp");
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  padding: 0 0 45px;
+  margin-top: -52px;
+  position: relative;
+  z-index: 3;
+}
+.montmartre-background .section { position: relative; }
+.montmartre-background #aulas { padding-top: 105px; }
+.montmartre-background .muted { color: #20344b; }
+.montmartre-background #aulas > .eyebrow,
+.montmartre-background #aulas > h2,
+.montmartre-background #aulas > .muted {
+  text-shadow: 0 1px 8px rgba(255,248,237,.95), 0 0 22px rgba(255,248,237,.95);
+}
+.montmartre-background .card { background: rgba(255,255,255,.72); }
+@media (max-width: 700px) {
+  .montmartre-background { background-position: 56% center; }
+}
+
+/* Cartões translúcidos e promoção com botão azul */
+.montmartre-background .card {
+  background: rgba(255,255,255,.72);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+.montmartre-background .benefits {
+  background: rgba(255,255,255,.76);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+.montmartre-background .promo {
+  background: rgba(255,255,255,.78);
+  color: var(--navy);
+  border: 1px solid rgba(255,255,255,.65);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+.montmartre-background .promo h2,
+.montmartre-background .promo p { color: var(--navy); }
+.montmartre-background .promo .btn.light {
+  background: #1476c8;
+  color: #fff;
+  border-color: #1476c8;
+}
+.montmartre-background .promo .btn.light:hover {
+  background: #095ba2;
+  border-color: #095ba2;
+}
+
+
+/* Ajustes visuais: cartões mais transparentes, promoção azul-marinho */
+.montmartre-background .card {
+  background: rgba(255, 255, 255, 0.48);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.montmartre-background .promo {
+  background: #09264a;
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,.12);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.montmartre-background .promo h2,
+.montmartre-background .promo p { color: #ffffff; }
+.montmartre-background .promo .btn.light {
+  background: rgba(255,255,255,.70);
+  color: #09264a;
+  border: 1px solid rgba(255,255,255,.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.montmartre-background .promo .btn.light:hover {
+  background: rgba(255,255,255,.90);
+  color: #09264a;
+  border-color: #ffffff;
+}
+
+
+/* ============================================================
+   PARIS À NOITE — metodologia e apresentação do professor
+   Altere a imagem em assets/paris-noite.webp
+   ============================================================ */
+.paris-night-background {
+  background-image:
+    linear-gradient(90deg, rgba(255,248,237,.80) 0%, rgba(255,248,237,.67) 49%, rgba(255,248,237,.10) 100%),
+    url("assets/paris-noite.webp");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-color: #e9e6e3;
+}
+.paris-night-background .section {
+  position: relative;
+}
+.paris-night-background #metodologia {
+  padding-top: 85px;
+  padding-bottom: 65px;
+}
+.paris-night-background #sobre {
+  padding-top: 60px;
+  padding-bottom: 115px;
+}
+.paris-night-background .step {
+  background: rgba(255,255,255,.73);
+  border-radius: 16px;
+  padding: 20px;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+.paris-night-background #sobre h2,
+.paris-night-background #metodologia h2,
+.paris-night-background .step h3 { color: #08264a; }
+.paris-night-background #sobre .muted {
+  background: rgba(255,255,255,.76);
+  border-radius: 14px;
+  padding: 18px 20px;
+  color: #142b44;
+  backdrop-filter: blur(4px);
+}
+@media (max-width: 760px) {
+  .paris-night-background { background-position: 66% center; }
+  .paris-night-background #metodologia { padding-top: 65px; }
+  .paris-night-background #sobre { padding-bottom: 75px; }
+}
+
+
+/* Agendamento: pátio do Louvre à noite */
+.booking {
+  background: linear-gradient(90deg, rgba(5, 12, 24, .48) 0%, rgba(5, 12, 24, .28) 46%, rgba(5, 12, 24, .08) 100%), url("assets/louvre-noite.webp") center center / cover no-repeat;
+  color: #fff;
+}
+.booking .eyebrow { color: #ff6470; }
+.booking > .section > div:first-child h2,
+.booking > .section > div:first-child h3,
+.booking > .section > div:first-child p { color: #fff; }
+.booking > .section > div:first-child .notice { color: #e9e9ed; }
+.booking .calendar {
+  background: rgba(255,255,255,.94);
+  color: var(--navy);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.booking .calendar .notice { color: #536172; }
+@media (max-width: 760px) {
+  .booking { background-position: 62% center; }
+}
+
+
+/* ============================================================
+   BARRA ENTRE AS DUAS PAISAGENS
+   Metade da barra sobre Paris, metade sobre Montmartre.
+   A paisagem inferior começa exatamente no fim do hero.
+   ============================================================ */
+:root { --benefits-half-height: 46px; }
+
+/* A barra fica sobre as duas seções, sem criar faixa bege. */
+.hero + .benefits {
+  position: relative;
+  z-index: 10;
+  margin: calc(-1 * var(--benefits-half-height)) auto 0;
+  background: rgba(255, 255, 255, .76);
+  border: 1px solid rgba(255,255,255,.70);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+}
+
+/* O início de Montmartre coincide com o meio da barra. */
+.hero + .benefits + .montmartre-background {
+  margin-top: calc(-1 * var(--benefits-half-height));
+  z-index: 1;
+  padding-top: 0;
+}
+
+@media (max-width: 900px) {
+  :root { --benefits-half-height: 67px; }
+  .hero + .benefits { margin-left: 15px; margin-right: 15px; }
+}
+@media (max-width: 620px) {
+  :root { --benefits-half-height: 63px; }
+}
+
+</style>
+</head>
+<body>
+<header class="hero" id="inicio">
+<nav class="nav">
+<a class="brand" href="#inicio">
+     Prof Francesco
+     <small>
+      Seu professor particular de francês
+     </small>
+</a>
+<div class="links">
+<a href="#inicio">
+      Início
+     </a>
+<a href="#aulas">
+      Aulas
+     </a>
+<a href="#metodologia">
+      Metodologia
+     </a>
+<a href="#sobre">
+      Sobre mim
+     </a>
+<a href="#agendar">
+      Agendamento
+     </a>
+</div>
+<a class="btn navy" href="#agendar">
+     Agendar aula
+    </a>
+</nav>
+<div class="hero-content">
+<div class="hero-copy">
+<span class="eyebrow">
+      Bonjour! Bienvenue!
+     </span>
+<h1>
+      Aprenda francês
+      <em>
+       de verdade.
+      </em>
+</h1>
+<p>
+      Aulas particulares online, personalizadas para você viajar, trabalhar, estudar e se comunicar com confiança.
+     </p>
+<div class="actions">
+<a class="btn red" href="#agendar">
+       Agendar uma aula
+      </a>
+<a class="btn light" href="#aulas">
+       Conheça as aulas
+      </a>
+</div>
+</div>
+</div>
+<img alt="Ilustração do Prof Francesco com roupa de viagem" class="portrait" src="assets/prof-francesco.webp"/>
+</header>
+<div class="benefits">
+<div>
+<strong>
+     💻 100% online
+    </strong>
+<span>
+     De onde você estiver
+    </span>
+</div>
+<div>
+<strong>
+     🎯 Personalizadas
+    </strong>
+<span>
+     No seu ritmo e objetivo
+    </span>
+</div>
+<div>
+<strong>
+     📈 Todos os níveis
+    </strong>
+<span>
+     Do básico ao avançado
+    </span>
+</div>
+<div>
+<strong>
+     💬 Conversação
+    </strong>
+<span>
+     Francês para a vida real
+    </span>
+</div>
+</div>
+<div class="montmartre-background">
+<section class="section" id="aulas">
+<span class="eyebrow">
+    Aprenda do seu jeito
+   </span>
+<h2>
+    Aulas feitas para seus objetivos
+   </h2>
+<p class="muted">
+    Do primeiro bonjour à conversação mais fluida, vamos construir um caminho adequado às suas necessidades.
+   </p>
+<div class="cards">
+<article class="card">
+<h3>
+      Francês do zero
+     </h3>
+<p>
+      Vocabulário, pronúncia e estruturas essenciais para começar a se comunicar.
+     </p>
+</article>
+<article class="card">
+<h3>
+      💬 Conversação
+     </h3>
+<p>
+      Prática de situações reais, com foco em confiança, compreensão e fluência.
+     </p>
+</article>
+<article class="card">
+<h3>
+      ✈️ Francês para viagens
+     </h3>
+<p>
+      Prepare-se para restaurantes, transportes, hospedagem e situações do cotidiano.
+     </p>
+</article>
+</div>
+</section><section class="section" style="padding-top:0">
+<div class="promo">
+<div>
+<span style="color:#c51c30;font-weight:700">
+      🎁 PROMOÇÃO ESPECIAL
+     </span>
+<h2>
+      Compre 10 aulas e ganhe 1!
+     </h2>
+<p>
+      Um pacote de 11 aulas pelo preço de 10. Consulte as condições antes de contratar.
+     </p>
+</div>
+<a class="btn light" href="#agendar">
+     Quero aproveitar
+    </a>
+</div>
+</section></div>
+
+<div class="paris-night-background">
+<section class="section" id="metodologia">
+<span class="eyebrow">
+    Simples e prático
+   </span>
+<h2>
+    Como funciona?
+   </h2>
+<div class="steps">
+<div class="step">
+<b>
+      01
+     </b>
+<h3>
+      Escolha um horário
+     </h3>
+<p>
+      Consulte as opções exibidas no calendário e envie sua solicitação.
+     </p>
+</div>
+<div class="step">
+<b>
+      02
+     </b>
+<h3>
+      Faça o Pix
+     </h3>
+<p>
+      Receba as instruções de pagamento e aguarde a confirmação da aula.
+     </p>
+</div>
+<div class="step">
+<b>
+      03
+     </b>
+<h3>
+      Comece a aprender
+     </h3>
+<p>
+      Participe da aula online e avance no seu ritmo.
+     </p>
+</div>
+</div>
+</section>
+<section class="section" id="sobre">
+<span class="eyebrow">
+    Enchanté!
+   </span>
+<h2>
+    Seu professor, Francesco
+   </h2>
+<p class="muted">
+    Acredito que aprender francês deve ser uma experiência prática e acolhedora. As aulas são pensadas para seus interesses e objetivos, com espaço para perguntar, experimentar e evoluir.
+   </p>
+</section>
+</div><!-- fim do fundo Paris à noite -->
+<section class="booking" id="agendar">
+<div class="section booking-grid">
+<div>
+<span class="eyebrow">
+      Sua próxima aula começa aqui
+     </span>
+<h2>
+      Escolha um horário
+     </h2>
+<p class="muted">
+      Veja os horários disponíveis e solicite uma aula. O agendamento só será confirmado após minha resposta e a confirmação do pagamento.
+     </p>
+<h3>
+      Pagamento por Pix
+     </h3>
+<p>
+      Depois de combinarmos a aula, você receberá os dados para pagamento por Pix. Não é necessário inserir dados bancários neste site.
+     </p>
+<p class="notice">
+      Os horários abaixo são uma configuração inicial de exemplo. Ajuste-os no JavaScript antes de publicar. Este calendário não sincroniza reservas entre visitantes.
+     </p>
+</div>
+<div class="calendar">
+<div class="cal-header">
+<button aria-label="Mês anterior" id="prev">
+       ‹
+      </button>
+<strong id="month">
+</strong>
+<button aria-label="Próximo mês" id="next">
+       ›
+      </button>
+</div>
+<div class="cal-grid" id="days">
+</div>
+<p>
+<strong>
+       Horários disponíveis
+      </strong>
+</p>
+<div class="times" id="times">
+<span class="notice">
+       Selecione um dia.
+      </span>
+</div>
+<form class="form-fields" id="booking-form">
+<input autocomplete="name" id="name" placeholder="Seu nome completo" required=""/>
+<input autocomplete="email" id="email" placeholder="Seu e-mail" required="" type="email"/>
+<select id="kind">
+<option value="Aula avulsa">
+        Aula avulsa
+       </option>
+<option value="Pacote promocional 10+1">
+        Pacote promocional: 10 + 1
+       </option>
+</select>
+<button class="btn red" type="submit">
+       Solicitar agendamento
+      </button>
+<p class="notice" id="feedback" role="status">
+       Ao clicar, será aberto seu aplicativo de e-mail com a solicitação pronta.
+      </p>
+</form>
+</div>
+</div>
+</section>
+<section class="section faq">
+<h2>
+    Perguntas frequentes
+   </h2>
+<details>
+<summary>
+     As aulas são online?
+    </summary>
+<p>
+     Sim. Você poderá participar de onde estiver, com conexão à internet.
+    </p>
+</details>
+<details>
+<summary>
+     Como funciona a promoção?
+    </summary>
+<p>
+     Ao adquirir um pacote de 10 aulas, você ganha mais uma. Consulte a duração, os valores e a validade do pacote antes do pagamento.
+    </p>
+</details>
+<details>
+<summary>
+     O horário fica reservado automaticamente?
+    </summary>
+<p>
+     Não. O formulário envia uma solicitação por e-mail. A reserva depende de confirmação.
+    </p>
+</details>
+</section>
+<footer>
+<strong>
+    Prof Francesco
+   </strong>
+<p>
+    Seu professor particular de francês
+   </p>
+<small>
+    ©
+    <span id="year">
+</span>
+    Prof Francesco · Aulas online
+   </small>
+</footer>
+<script>
+   // PERSONALIZE AQUI antes de publicar:
+const EMAIL_PROFESSOR = 'SEU_EMAIL@EXEMPLO.COM';
+// 0 = domingo, 1 = segunda ... 6 = sábado. Horários de exemplo, no fuso de Brasília.
+const DISPONIBILIDADE = {1:['09:00','10:00','14:00'],2:['10:00','15:00'],3:['09:00','14:00','17:00'],4:['10:00','14:00'],5:['09:00','11:00','15:00']};
+const FUSO_HORARIO = 'America/Sao_Paulo';
+const days=document.getElementById('days'),times=document.getElementById('times'),month=document.getElementById('month');let view=new Date();view.setDate(1);let selectedDate='',selectedTime='';
+function localToday(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:FUSO_HORARIO,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const x=Object.fromEntries(parts.map(p=>[p.type,p.value]));return `${x.year}-${x.month}-${x.day}`}
+function iso(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+function render(){month.textContent=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(view);days.innerHTML='';['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(w=>{const x=document.createElement('div');x.className='weekday';x.textContent=w;days.append(x)});const y=view.getFullYear(),m=view.getMonth(),start=new Date(y,m,1).getDay(),length=new Date(y,m+1,0).getDate();for(let i=0;i<start;i++)days.append(document.createElement('span'));for(let d=1;d<=length;d++){const key=iso(y,m,d),weekday=new Date(y,m,d).getDay(),valid=key>=localToday()&&Boolean(DISPONIBILIDADE[weekday]?.length);const b=document.createElement('button');b.type='button';b.textContent=d;b.className='day'+(valid?' available':'')+(selectedDate===key?' selected':'');b.disabled=!valid;b.onclick=()=>{selectedDate=key;selectedTime='';render();renderTimes(weekday)};days.append(b)}}
+function renderTimes(weekday){times.innerHTML='';for(const hour of DISPONIBILIDADE[weekday]||[]){const b=document.createElement('button');b.type='button';b.textContent=hour;b.className='time'+(selectedTime===hour?' selected':'');b.onclick=()=>{selectedTime=hour;renderTimes(weekday)};times.append(b)}}
+document.getElementById('prev').onclick=()=>{view.setMonth(view.getMonth()-1);selectedDate='';selectedTime='';times.textContent='Selecione um dia.';render()};document.getElementById('next').onclick=()=>{view.setMonth(view.getMonth()+1);selectedDate='';selectedTime='';times.textContent='Selecione um dia.';render()};
+document.getElementById('booking-form').onsubmit=e=>{e.preventDefault();const feedback=document.getElementById('feedback');if(!selectedDate||!selectedTime){feedback.textContent='Selecione um dia e horário antes de continuar.';return}if(EMAIL_PROFESSOR.includes('EXEMPLO.COM')){feedback.textContent='O professor precisa configurar o e-mail de contato antes de receber solicitações.';return}const nome=document.getElementById('name').value,mail=document.getElementById('email').value,kind=document.getElementById('kind').value;const subject=encodeURIComponent('Solicitação de aula — Prof Francesco');const body=encodeURIComponent(`Olá, gostaria de solicitar uma aula.\n\nNome: ${nome}\nE-mail: ${mail}\nModalidade: ${kind}\nData: ${selectedDate}\nHorário: ${selectedTime} (${FUSO_HORARIO})\n\nAguardo confirmação de disponibilidade e instruções para Pix.`);window.location.href=`mailto:${EMAIL_PROFESSOR}?subject=${subject}&body=${body}`;feedback.textContent='Seu aplicativo de e-mail foi acionado. Envie a mensagem para concluir a solicitação.'};document.getElementById('year').textContent=new Date().getFullYear();render();
+  </script>
+</body>
+</html>
