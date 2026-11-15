@@ -658,6 +658,7 @@ footer strong {
 }
 
 </style>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 <header class="hero" id="inicio">
@@ -917,6 +918,7 @@ footer strong {
         Pacote promocional: 10 + 1
        </option>
 </select>
+<div class="cf-turnstile" data-sitekey="0x4AAAAAAGB54G7sYb1NXlk7" data-callback="turnstileSucesso" data-expired-callback="turnstileExpirado" data-error-callback="turnstileExpirado"></div>
 <button class="btn red" type="submit">
        Solicitar agendamento
       </button>
@@ -971,6 +973,9 @@ footer strong {
    </small>
 </footer>
 <script>
+let turnstileToken = '';
+window.turnstileSucesso = token => { turnstileToken = token; };
+window.turnstileExpirado = () => { turnstileToken = ''; };
 const SUPABASE_URL = 'https://mjnjgjtlxgucmsttyvac.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_hBi4JsicphnM1MWugvAUZw_eRoa02O1';
 const FUSO_HORARIO = 'America/Sao_Paulo';
@@ -1078,6 +1083,10 @@ document.getElementById('booking-form').onsubmit = async e => {
     return;
   }
 
+  if (!turnstileToken) {
+    feedback.textContent = 'Conclua a verificação de segurança antes de continuar.';
+    return;
+  }
   const nome = document.getElementById('name').value.trim();
   const email = document.getElementById('email').value.trim();
   const tipo_aula = document.getElementById('kind').value;
@@ -1097,7 +1106,8 @@ document.getElementById('booking-form').onsubmit = async e => {
         hora: selectedTime,
         nome,
         email,
-        tipo_aula
+        tipo_aula,
+        turnstile_token: turnstileToken
       })
     });
     const resultado = await response.json();
@@ -1110,6 +1120,8 @@ document.getElementById('booking-form').onsubmit = async e => {
   } catch (error) {
     feedback.textContent = error.message || 'Erro ao enviar solicitação. Tente novamente.';
   } finally {
+    turnstileToken = '';
+    if (window.turnstile) window.turnstile.reset();
     botao.disabled = false;
   }
 };
