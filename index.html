@@ -880,7 +880,7 @@ footer strong {
       Depois de combinarmos a aula, você receberá os dados para pagamento por Pix. Não é necessário inserir dados bancários neste site.
      </p>
 <p class="notice">
-      Os horários abaixo são uma configuração inicial de exemplo. Ajuste-os no JavaScript antes de publicar. Este calendário não sincroniza reservas entre visitantes.
+      Os horários são consultados no Supabase e exibidos no fuso de Brasília. O envio do formulário por e-mail não bloqueia o horário automaticamente.
      </p>
 </div>
 <div class="calendar">
@@ -921,7 +921,7 @@ footer strong {
        Solicitar agendamento
       </button>
 <p class="notice" id="feedback" role="status">
-       Ao clicar, será aberto seu aplicativo de e-mail com a solicitação pronta.
+       Ao clicar, será aberto seu aplicativo de e-mail com a solicitação pronta. O horário não é reservado automaticamente.
       </p>
 </form>
 </div>
@@ -971,22 +971,115 @@ footer strong {
    </small>
 </footer>
 <script>
-
-const SUPABASE_URL = 'https://mjnjgjtlxgucmsttyvac.supabase.co';   
+const SUPABASE_URL = 'https://mjnjgjtlxgucmsttyvac.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_hBi4JsicphnM1MWugvAUZw_eRoa02O1';
-   
-   // PERSONALIZE AQUI antes de publicar:
-const EMAIL_PROFESSOR = 'SEU_EMAIL@EXEMPLO.COM';
-// 0 = domingo, 1 = segunda ... 6 = sábado. Horários de exemplo, no fuso de Brasília.
-const DISPONIBILIDADE = {1:['09:00','10:00','14:00'],2:['10:00','15:00'],3:['09:00','14:00','17:00'],4:['10:00','14:00'],5:['09:00','11:00','15:00']};
+const EMAIL_PROFESSOR = 'chicoailton@gmail.com'; // Substitua pelo seu e-mail real
 const FUSO_HORARIO = 'America/Sao_Paulo';
-const days=document.getElementById('days'),times=document.getElementById('times'),month=document.getElementById('month');let view=new Date();view.setDate(1);let selectedDate='',selectedTime='';
-function localToday(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:FUSO_HORARIO,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const x=Object.fromEntries(parts.map(p=>[p.type,p.value]));return `${x.year}-${x.month}-${x.day}`}
-function iso(y,m,d){return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
-function render(){month.textContent=new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(view);days.innerHTML='';['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(w=>{const x=document.createElement('div');x.className='weekday';x.textContent=w;days.append(x)});const y=view.getFullYear(),m=view.getMonth(),start=new Date(y,m,1).getDay(),length=new Date(y,m+1,0).getDate();for(let i=0;i<start;i++)days.append(document.createElement('span'));for(let d=1;d<=length;d++){const key=iso(y,m,d),weekday=new Date(y,m,d).getDay(),valid=key>=localToday()&&Boolean(DISPONIBILIDADE[weekday]?.length);const b=document.createElement('button');b.type='button';b.textContent=d;b.className='day'+(valid?' available':'')+(selectedDate===key?' selected':'');b.disabled=!valid;b.onclick=()=>{selectedDate=key;selectedTime='';render();renderTimes(weekday)};days.append(b)}}
-function renderTimes(weekday){times.innerHTML='';for(const hour of DISPONIBILIDADE[weekday]||[]){const b=document.createElement('button');b.type='button';b.textContent=hour;b.className='time'+(selectedTime===hour?' selected':'');b.onclick=()=>{selectedTime=hour;renderTimes(weekday)};times.append(b)}}
-document.getElementById('prev').onclick=()=>{view.setMonth(view.getMonth()-1);selectedDate='';selectedTime='';times.textContent='Selecione um dia.';render()};document.getElementById('next').onclick=()=>{view.setMonth(view.getMonth()+1);selectedDate='';selectedTime='';times.textContent='Selecione um dia.';render()};
-document.getElementById('booking-form').onsubmit=e=>{e.preventDefault();const feedback=document.getElementById('feedback');if(!selectedDate||!selectedTime){feedback.textContent='Selecione um dia e horário antes de continuar.';return}if(EMAIL_PROFESSOR.includes('EXEMPLO.COM')){feedback.textContent='O professor precisa configurar o e-mail de contato antes de receber solicitações.';return}const nome=document.getElementById('name').value,mail=document.getElementById('email').value,kind=document.getElementById('kind').value;const subject=encodeURIComponent('Solicitação de aula — Prof Francesco');const body=encodeURIComponent(`Olá, gostaria de solicitar uma aula.\n\nNome: ${nome}\nE-mail: ${mail}\nModalidade: ${kind}\nData: ${selectedDate}\nHorário: ${selectedTime} (${FUSO_HORARIO})\n\nAguardo confirmação de disponibilidade e instruções para Pix.`);window.location.href=`mailto:${EMAIL_PROFESSOR}?subject=${subject}&body=${body}`;feedback.textContent='Seu aplicativo de e-mail foi acionado. Envie a mensagem para concluir a solicitação.'};document.getElementById('year').textContent=new Date().getFullYear();render();
-  </script>
+const days = document.getElementById('days');
+const times = document.getElementById('times');
+const month = document.getElementById('month');
+const feedback = document.getElementById('feedback');
+const todayParts = () => Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+  timeZone: FUSO_HORARIO, year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+}).formatToParts(new Date()).map(p => [p.type, p.value]));
+const dateKey = (y,m,d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const currentBrazil = () => { const p=todayParts(); return {date:`${p.year}-${p.month}-${p.day}`, time:`${p.hour}:${p.minute}`}; };
+const initial = currentBrazil().date.split('-').map(Number);
+let view = new Date(initial[0],initial[1]-1,1);
+let selectedDate = '', selectedTime = '';
+let slots = new Map();
+let requestId = 0;
+function showTimes(message) { times.textContent = message; }
+function availableTimes(date) {
+  const now = currentBrazil();
+  return (slots.get(date) || []).filter(t => date > now.date || (date === now.date && t > now.time));
+}
+async function loadMonth() {
+  const id = ++requestId;
+  selectedDate = ''; selectedTime = '';
+  slots = new Map();
+  showTimes('Carregando horários...');
+  month.textContent = new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(view);
+  days.textContent = '';
+  const y=view.getFullYear(), m=view.getMonth();
+  const start=dateKey(y,m,1);
+  const last=dateKey(y,m,new Date(y,m+1,0).getDate());
+  const url = `${SUPABASE_URL}/rest/v1/horarios?select=data,hora&disponivel=eq.true&data=gte.${start}&data=lte.${last}&order=data.asc,hora.asc&limit=1000`;
+  try {
+    const response = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
+    if(!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+    const records=await response.json();
+    if(id!==requestId) return;
+    for(const item of records) {
+      const time=String(item.hora).slice(0,5);
+      if(!slots.has(item.data)) slots.set(item.data,[]);
+      if(!slots.get(item.data).includes(time)) slots.get(item.data).push(time);
+    }
+    renderCalendar();
+    showTimes('Selecione um dia disponível. Horário de Brasília.');
+  } catch(error) {
+    if(id!==requestId) return;
+    console.error('Falha ao consultar Supabase:',error);
+    renderCalendar();
+    showTimes('Não foi possível carregar os horários. Atualize a página ou tente novamente.');
+  }
+}
+function renderCalendar() {
+  days.textContent='';
+  ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(w=>{
+    const el=document.createElement('div'); el.className='weekday';el.textContent=w;days.append(el);
+  });
+  const y=view.getFullYear(),m=view.getMonth();
+  const offset=new Date(y,m,1).getDay();
+  const count=new Date(y,m+1,0).getDate();
+  for(let i=0;i<offset;i++) days.append(document.createElement('span'));
+  for(let d=1;d<=count;d++) {
+    const date=dateKey(y,m,d), valid=availableTimes(date).length>0;
+    const button=document.createElement('button');
+    button.type='button';button.textContent=d;
+    button.className='day'+(valid?' available':'')+(selectedDate===date?' selected':'');
+    button.disabled=!valid;
+    button.onclick=()=>{selectedDate=date;selectedTime='';renderCalendar();renderTimes();};
+    days.append(button);
+  }
+}
+function renderTimes() {
+  times.textContent='';
+  const available=availableTimes(selectedDate);
+  if(!available.length) {showTimes('Nenhum horário disponível nesta data.');return;}
+  for(const time of available) {
+    const button=document.createElement('button');
+    button.type='button';button.textContent=time;
+    button.className='time'+(selectedTime===time?' selected':'');
+    button.onclick=()=>{selectedTime=time;renderTimes();};
+    times.append(button);
+  }
+}
+document.getElementById('prev').onclick=()=>{
+  view=new Date(view.getFullYear(),view.getMonth()-1,1);loadMonth();
+};
+document.getElementById('next').onclick=()=>{
+  view=new Date(view.getFullYear(),view.getMonth()+1,1);loadMonth();
+};
+document.getElementById('booking-form').onsubmit=async e=>{
+  e.preventDefault();
+  if(!selectedDate||!selectedTime||!availableTimes(selectedDate).includes(selectedTime)) {
+    feedback.textContent='Selecione uma data e um horário disponíveis.';return;
+  }
+  if(EMAIL_PROFESSOR.includes('EXEMPLO.COM')) {
+    feedback.textContent='Configure o e-mail do professor no HTML antes de receber solicitações.';return;
+  }
+  const nome=document.getElementById('name').value.trim();
+  const email=document.getElementById('email').value.trim();
+  const tipo=document.getElementById('kind').value;
+  const subject=encodeURIComponent('Solicitação de aula — Prof Francesco');
+  const body=encodeURIComponent(`Olá, gostaria de solicitar uma aula.\n\nNome: ${nome}\nE-mail: ${email}\nModalidade: ${tipo}\nData: ${selectedDate}\nHorário: ${selectedTime} (${FUSO_HORARIO})\n\nAguardo confirmação de disponibilidade e instruções para Pix.`);
+  window.location.href=`mailto:${EMAIL_PROFESSOR}?subject=${subject}&body=${body}`;
+  feedback.textContent='Seu aplicativo de e-mail foi aberto. Envie a mensagem para solicitar a aula. O horário ainda não está reservado automaticamente.';
+};
+document.getElementById('year').textContent=new Date().getFullYear();
+loadMonth();
+</script>
 </body>
 </html>
