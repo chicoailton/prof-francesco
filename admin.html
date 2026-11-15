@@ -127,6 +127,13 @@
           <button class="btn btn-light" id="hidePixQrBtn" type="button">Ocultar QR Code</button>
         </div>
       </section>
+      <section class="panel pix-test" aria-labelledby="approvalTestTitle">
+        <h2 id="approvalTestTitle">Teste controlado de aprovação — Reserva #3</h2>
+        <p class="muted">Somente a reserva #3 (Teste), em 17/11/2026 às 18h (Brasília), para chicoinmundo@gmail.com. Esta ação é REAL: aprova a reserva e tenta enviar o Pix de R$ 150,00 por e-mail. Não efetue o pagamento.</p>
+        <button class="btn" id="approveTest3Btn" type="button" disabled>Testar aprovação e envio do Pix — #3</button>
+        <p class="hint" id="approveTest3Hint">Aguardando conferência da reserva...</p>
+        <div id="approveTest3Message" class="message hidden" role="status" aria-live="polite"></div>
+      </section>
       <div class="panel toolbar"><div class="field"><label for="statusFilter">Filtrar por status</label><select id="statusFilter"><option value="todos">Todas as reservas</option><option value="pendente">Pendentes</option><option value="aguardando_pix">Aguardando Pix</option><option value="confirmada">Confirmadas</option><option value="cancelada">Canceladas</option></select></div><div class="muted" id="listCount" aria-live="polite"></div></div>
       <div id="dashboardMessage" class="message hidden" role="alert"></div>
       <div id="reservations" class="cards" aria-live="polite"></div>
@@ -147,6 +154,8 @@
     const $ = (id) => document.getElementById(id);
     let reservas = [];
     let requestSequence = 0;
+    let envioTeste3EmAndamento = false;
+    let envioTeste3Tentado = false;
 
     function showMessage(element, message, isError = false) {
       element.textContent = message;
@@ -194,6 +203,18 @@
       $('countTotal').textContent = reservas.length;
       $('listCount').textContent = `${selected.length} de ${reservas.length} reservas carregadas (máximo 100)`;
       $('emptyState').classList.toggle('hidden', selected.length !== 0);
+      const teste3 = reservas.find(r => Number(r.id) === 3);
+      const horario3 = Array.isArray(teste3?.horarios) ? teste3.horarios[0] : teste3?.horarios;
+      const pronto3 = teste3?.status === 'pendente' &&
+        teste3?.email?.toLowerCase() === 'chicoinmundo@gmail.com' &&
+        horario3?.data === '2026-11-17' &&
+        String(horario3?.hora || '').startsWith('18:00') &&
+        !teste3?.pix_txid && !teste3?.pix_enviado_em && !teste3?.pix_envio_iniciado_em;
+      $('approveTest3Btn').disabled = !pronto3 || envioTeste3EmAndamento || envioTeste3Tentado;
+      $('approveTest3Hint').textContent = envioTeste3Tentado
+        ? 'Tentativa realizada nesta sessão. Confira o resultado no painel e no Resend; não repita o envio.'
+        : pronto3 ? 'Reserva #3 conferida. A ação exige confirmação antes do envio.'
+        : 'Teste indisponível: reserva #3 ausente, alterada ou já processada.';
       const fragment = document.createDocumentFragment();
       for (const reserva of selected) {
         const card = el('article','panel reservation');
@@ -343,6 +364,59 @@
       } finally {
         button.disabled = false;
         button.textContent = 'Gerar Pix de teste';
+      }
+    });
+
+    $('approveTest3Btn').addEventListener('click', async () => {
+      if (envioTeste3EmAndamento || envioTeste3Tentado) return;
+      const teste = reservas.find(r => Number(r.id) === 3);
+      const horario = Array.isArray(teste?.horarios) ? teste.horarios[0] : teste?.horarios;
+      if (teste?.status !== 'pendente' || teste?.email?.toLowerCase() !== 'chicoinmundo@gmail.com' ||
+          horario?.data !== '2026-11-17' || !String(horario?.hora || '').startsWith('18:00') ||
+          teste?.pix_txid || teste?.pix_enviado_em || teste?.pix_envio_iniciado_em) {
+        showMessage($('approveTest3Message'), 'Os dados da reserva #3 não correspondem ao teste. Atualize as reservas.', true);
+        return;
+      }
+      const autorizado = window.confirm(
+        'CONFIRMAR ENVIO REAL\n\n' +
+        'Reserva: #3 — Teste\n' +
+        'Destinatário: chicoinmundo@gmail.com\n' +
+        'Aula: 17/11/2026 às 18h (Brasília)\n' +
+        'Pix: R$ 150,00\n\n' +
+        'A reserva será aprovada e um e-mail de cobrança REAL será enviado.\n' +
+        'Não pague o Pix de teste. Deseja continuar?'
+      );
+      if (!autorizado) return;
+      envioTeste3EmAndamento = true;
+      envioTeste3Tentado = true;
+      $('approveTest3Btn').disabled = true;
+      hideMessage($('approveTest3Message'));
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) throw new Error('Sessão expirada. Entre novamente.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/aprovar-reserva`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${data.session.access_token}`,
+            'apikey': SUPABASE_PUBLIC_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ reserva_id: 3 }),
+          cache: 'no-store'
+        });
+        let body;
+        try { body = await response.json(); }
+        catch { throw new Error(`Resposta inesperada do servidor (HTTP ${response.status}).`); }
+        if (!response.ok || body.sucesso !== true) {
+          throw new Error(`${body.erro || 'Falha na aprovação'} (HTTP ${response.status}). NÃO repita o envio antes de verificar o banco e o Resend.`);
+        }
+        showMessage($('approveTest3Message'), 'Reserva #3 aprovada. O Resend aceitou o e-mail de cobrança. Confira a caixa de entrada e o status atualizado; não efetue o pagamento.');
+      } catch (error) {
+        showMessage($('approveTest3Message'), (error.message || 'Resultado incerto.') + ' Verifique o status da reserva e os logs antes de qualquer nova tentativa.', true);
+      } finally {
+        envioTeste3EmAndamento = false;
+        await loadReservations();
+        $('approveTest3Btn').disabled = true;
       }
     });
 
