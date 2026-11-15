@@ -85,6 +85,11 @@
     .confirm-steps { margin:10px 0 14px; padding-left:22px; color:var(--text); }
     .confirm-steps li { margin-bottom:5px; }
     .confirm-note { background:#fff7e8; border:1px solid #f0ddb5; padding:12px 14px; border-radius:9px; color:#725319; font-size:13px; }
+    .payment-list { display:grid; gap:12px; margin-top:16px; }
+    .payment-item { border:1px solid var(--border); background:#f8fafc; border-radius:10px; padding:15px; }
+    .payment-item h3 { font-size:16px; margin:0 0 3px; color:var(--navy); }
+    .payment-item .details { margin:12px 0; background:white; }
+    .payment-item .btn { margin-top:4px; }
     .footer { text-align:center; color:var(--muted); font-size:12px; margin-top:30px; }
     @media (max-width:720px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .cards { grid-template-columns:1fr; } .login { margin:35px auto; padding:25px; } .reservation-head { flex-wrap:wrap; } }
     @media (max-width:380px) { .stats { grid-template-columns:1fr 1fr; } .stat { padding:13px; } .stat strong { font-size:24px; } }
@@ -134,8 +139,8 @@
       </section>
       <section class="panel pix-test" aria-labelledby="approvalTestTitle">
         <h2 id="approvalTestTitle">Teste controlado de aprovação — Reserva #5</h2>
-        <p class="muted">Somente a reserva #5 (Test QR Code), para chicoinmundo@gmail.com. Confira data e horário no cartão da reserva antes de confirmar. Esta ação é REAL: aprova a reserva e tenta enviar o Pix de R$ 150,00 por e-mail. Não efetue o pagamento.</p>
-        <button class="btn" id="approveTest5Btn" type="button" disabled>Testar aprovação e envio do Pix — #5</button>
+        <p class="muted">Teste anterior concluído. A reserva #5 já foi processada e o envio experimental de cobrança não pode ser repetido por este painel.</p>
+        <button class="btn" id="approveTest5Btn" type="button" disabled>Teste de aprovação encerrado — #5</button>
         <p class="hint" id="approveTest5Hint">Aguardando conferência da reserva...</p>
         <div id="approveTest5Message" class="message hidden" role="status" aria-live="polite"></div>
       </section>
@@ -149,6 +154,7 @@
         </ol>
         <div class="confirm-note">Modo seguro ativo: nenhum botão confirma pagamentos ou envia e-mails. As reservas de teste #3 e #5 não devem ser confirmadas sem pagamento real.</div>
         <p class="hint" id="confirmSummary" aria-live="polite">Carregando reservas aguardando Pix...</p>
+        <div id="paymentList" class="payment-list" aria-live="polite"></div>
       </section>
       <div class="panel toolbar"><div class="field"><label for="statusFilter">Filtrar por status</label><select id="statusFilter"><option value="todos">Todas as reservas</option><option value="pendente">Pendentes</option><option value="aguardando_pix">Aguardando Pix</option><option value="confirmada">Confirmadas</option><option value="cancelada">Canceladas</option></select></div><div class="muted" id="listCount" aria-live="polite"></div></div>
       <div id="dashboardMessage" class="message hidden" role="alert"></div>
@@ -170,8 +176,6 @@
     const $ = (id) => document.getElementById(id);
     let reservas = [];
     let requestSequence = 0;
-    let envioTeste5EmAndamento = false;
-    let envioTeste5Tentado = false;
 
     function showMessage(element, message, isError = false) {
       element.textContent = message;
@@ -185,7 +189,7 @@
       $('dashboard').classList.toggle('hidden', !logged);
       $('topActions').classList.toggle('hidden', !logged);
       $('userEmail').textContent = user?.email || '';
-      if (!logged) { reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
+      if (!logged) { $('paymentList').replaceChildren(); reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
     }
     function formatDate(date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Não informada';
@@ -210,6 +214,39 @@
       row.append(el('span','',label), el('strong','',value));
       parent.append(row);
     }
+    function renderPaymentList() {
+      const container = $('paymentList');
+      const fragment = document.createDocumentFragment();
+      const awaiting = reservas.filter(r => r.status === 'aguardando_pix');
+      if (!awaiting.length) {
+        fragment.append(el('p','muted','Nenhuma reserva aguardando Pix entre as reservas carregadas.'));
+      }
+      for (const reserva of awaiting) {
+        const item = el('article','payment-item');
+        item.append(el('h3','',`Reserva #${reserva.id} — ${reserva.nome || 'Aluno sem nome'}`));
+        item.append(el('p','muted',reserva.email || 'E-mail não informado'));
+        const details = el('div','details');
+        const horario = Array.isArray(reserva.horarios) ? reserva.horarios[0] : reserva.horarios;
+        detail(details,'Data',formatDate(horario?.data));
+        detail(details,'Horário',formatTime(horario?.hora));
+        detail(details,'Valor da cobrança',formatMoney(reserva.valor_centavos));
+        detail(details,'Identificador Pix',reserva.pix_txid || 'Não informado');
+        detail(details,'Cobrança enviada',reserva.pix_enviado_em ? 'Registro existente' : 'Sem registro');
+        item.append(details);
+        const btn = el('button','btn','Confirmar pagamento — desativado');
+        btn.type = 'button'; btn.disabled = true;
+        btn.title = 'A confirmação real permanece bloqueada durante os testes';
+        item.append(btn);
+        if (Number(reserva.id) === 3 || Number(reserva.id) === 5) {
+          item.append(el('p','hint','Reserva usada nos testes: não confirmar sem crédito real verificado no banco.'));
+        } else {
+          item.append(el('p','hint','A confirmação depende de conferência bancária e liberação futura do sistema.'));
+        }
+        fragment.append(item);
+      }
+      container.replaceChildren(fragment);
+    }
+
     function renderReservations() {
       const filter = $('statusFilter').value;
       const selected = filter === 'todos' ? reservas : reservas.filter(r => r.status === filter);
@@ -221,18 +258,9 @@
       $('confirmSummary').textContent = `${aguardandoPix.length} reserva(s) aguardando Pix. Confirmação manual ainda desativada.`;
       $('listCount').textContent = `${selected.length} de ${reservas.length} reservas carregadas (máximo 100)`;
       $('emptyState').classList.toggle('hidden', selected.length !== 0);
-      const teste5 = reservas.find(r => Number(r.id) === 5);
-      const horario5 = Array.isArray(teste5?.horarios) ? teste5.horarios[0] : teste5?.horarios;
-      const pronto5 = teste5?.status === 'pendente' &&
-        teste5?.nome?.trim().toLowerCase() === 'test qr code' &&
-        teste5?.email?.trim().toLowerCase() === 'chicoinmundo@gmail.com' &&
-        Boolean(horario5?.data && horario5?.hora) &&
-        !teste5?.pix_txid && !teste5?.pix_enviado_em && !teste5?.pix_envio_iniciado_em;
-      $('approveTest5Btn').disabled = !pronto5 || envioTeste5EmAndamento || envioTeste5Tentado;
-      $('approveTest5Hint').textContent = envioTeste5Tentado
-        ? 'Tentativa realizada nesta sessão. Confira o resultado no painel e no Resend; não repita o envio.'
-        : pronto5 ? `Reserva #5 conferida: ${formatDate(horario5.data)} às ${formatTime(horario5.hora)}. A ação exige confirmação.`
-        : 'Teste indisponível: reserva #5 ausente, alterada ou já processada.';
+      renderPaymentList();
+      $('approveTest5Btn').disabled = true; // Teste #5 encerrado; bloqueio permanente nesta versão.
+      $('approveTest5Hint').textContent = 'Teste de aprovação encerrado. Este botão permanece desativado.';
       const fragment = document.createDocumentFragment();
       for (const reserva of selected) {
         const card = el('article','panel reservation');
@@ -385,60 +413,7 @@
       }
     });
 
-    $('approveTest5Btn').addEventListener('click', async () => {
-      if (envioTeste5EmAndamento || envioTeste5Tentado) return;
-      const teste = reservas.find(r => Number(r.id) === 5);
-      const horario = Array.isArray(teste?.horarios) ? teste.horarios[0] : teste?.horarios;
-      if (teste?.status !== 'pendente' ||
-          teste?.nome?.trim().toLowerCase() !== 'test qr code' ||
-          teste?.email?.trim().toLowerCase() !== 'chicoinmundo@gmail.com' ||
-          !horario?.data || !horario?.hora ||
-          teste?.pix_txid || teste?.pix_enviado_em || teste?.pix_envio_iniciado_em) {
-        showMessage($('approveTest5Message'), 'Os dados da reserva #5 não correspondem ao teste. Atualize as reservas.', true);
-        return;
-      }
-      const autorizado = window.confirm(
-        'CONFIRMAR ENVIO REAL\n\n' +
-        'Reserva: #5 — Test QR Code\n' +
-        'Destinatário: chicoinmundo@gmail.com\n' +
-        `Aula: ${formatDate(horario.data)} às ${formatTime(horario.hora)}\n` +
-        'Pix: R$ 150,00\n\n' +
-        'A reserva será aprovada e um e-mail de cobrança REAL será enviado.\n' +
-        'Não pague o Pix de teste. Deseja continuar?'
-      );
-      if (!autorizado) return;
-      envioTeste5EmAndamento = true;
-      envioTeste5Tentado = true;
-      $('approveTest5Btn').disabled = true;
-      hideMessage($('approveTest5Message'));
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error || !data.session) throw new Error('Sessão expirada. Entre novamente.');
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/aprovar-reserva`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${data.session.access_token}`,
-            'apikey': SUPABASE_PUBLIC_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ reserva_id: 5 }),
-          cache: 'no-store'
-        });
-        let body;
-        try { body = await response.json(); }
-        catch { throw new Error(`Resposta inesperada do servidor (HTTP ${response.status}).`); }
-        if (!response.ok || body.sucesso !== true) {
-          throw new Error(`${body.erro || 'Falha na aprovação'} (HTTP ${response.status}). NÃO repita o envio antes de verificar o banco e o Resend.`);
-        }
-        showMessage($('approveTest5Message'), 'Reserva #5 aprovada. O Resend aceitou o e-mail de cobrança. Confira a caixa de entrada e o QR Code; não efetue o pagamento.');
-      } catch (error) {
-        showMessage($('approveTest5Message'), (error.message || 'Resultado incerto.') + ' Verifique o status da reserva e os logs antes de qualquer nova tentativa.', true);
-      } finally {
-        envioTeste5EmAndamento = false;
-        await loadReservations();
-        $('approveTest5Btn').disabled = true;
-      }
-    });
+    // A aprovação experimental #5 foi encerrada. Nenhum handler de envio é registrado.
 
     $('refreshBtn').addEventListener('click',loadReservations);
     $('statusFilter').addEventListener('change',renderReservations);
