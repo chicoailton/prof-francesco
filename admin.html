@@ -217,8 +217,12 @@
     let requestSequence = 0;
     let paymentModalReservaId = null;
     let paymentModalPreviousFocus = null;
+    let paymentConfirmationInProgress = false;
+    let paymentConfirmationAttempted = false;
+    const RESERVAS_TESTE_PROTEGIDAS = new Set([3, 5]);
 
     function closePaymentModal() {
+      if (paymentConfirmationInProgress) return;
       $('paymentModal').classList.add('hidden');
       document.body.classList.remove('modal-open');
       paymentModalReservaId = null;
@@ -231,16 +235,27 @@
     }
 
     function updatePaymentModalFeedback() {
-      if (paymentModalReservaId === null) return;
+      const botao = $('submitPaymentModal');
+      botao.disabled = true;
+      if (paymentModalReservaId === null || paymentConfirmationInProgress || paymentConfirmationAttempted) return;
       const reserva = reservas.find(r => Number(r.id) === paymentModalReservaId);
-      if (!reserva || reserva.status !== 'aguardando_pix') {
+      if (!reserva || reserva.status !== 'aguardando_pix' || !reserva.pix_txid ||
+          !reserva.pix_enviado_em || reserva.pagamento_confirmado_em) {
         showMessage($('paymentModalFeedback'), 'Reserva não disponível. Feche a janela e atualize as reservas.', true);
+        return;
+      }
+      if (RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id))) {
+        showMessage($('paymentModalFeedback'), 'Reserva de teste protegida: confirmação bloqueada.', true);
         return;
       }
       const matches = $('paymentTxidInput').value.trim() === reserva.pix_txid;
       const checked = $('paymentBankChecked').checked;
-      if (matches && checked) {
-        showMessage($('paymentModalFeedback'), 'Conferência preenchida. A confirmação permanece desativada durante os testes.');
+      const apta = matches && checked;
+      botao.disabled = !CONFIRMACAO_MANUAL_HABILITADA || !apta;
+      if (apta) {
+        showMessage($('paymentModalFeedback'), CONFIRMACAO_MANUAL_HABILITADA
+          ? 'Dados preenchidos. Confirme somente após verificar o crédito real no banco.'
+          : 'Conferência preenchida. A confirmação permanece desativada durante os testes.');
       } else {
         hideMessage($('paymentModalFeedback'));
       }
@@ -248,8 +263,9 @@
 
     function openPaymentModal(reservaId) {
       const reserva = reservas.find(r => Number(r.id) === Number(reservaId));
-      if (!reserva || reserva.status !== 'aguardando_pix' || !reserva.pix_txid || !reserva.pix_enviado_em) return;
+      if (!reserva || reserva.status !== 'aguardando_pix' || !reserva.pix_txid || !reserva.pix_enviado_em || reserva.pagamento_confirmado_em) return;
       paymentModalReservaId = Number(reserva.id);
+      paymentConfirmationAttempted = false;
       paymentModalPreviousFocus = document.activeElement;
       const details = $('paymentModalDetails');
       details.replaceChildren();
@@ -263,6 +279,7 @@
       hideMessage($('paymentModalFeedback'));
       $('paymentModal').classList.remove('hidden');
       document.body.classList.add('modal-open');
+      updatePaymentModalFeedback();
       $('paymentTxidInput').focus();
     }
 
@@ -324,7 +341,7 @@
         item.append(details);
         const btn = el('button','btn','Conferir pagamento (prévia)');
         btn.type = 'button';
-        btn.disabled = !reserva.pix_txid || !reserva.pix_enviado_em;
+        btn.disabled = !reserva.pix_txid || !reserva.pix_enviado_em || !!reserva.pagamento_confirmado_em;
         btn.title = 'Abrir conferência visual; nenhuma confirmação será executada';
         btn.addEventListener('click', () => openPaymentModal(reserva.id));
         item.append(btn);
@@ -561,17 +578,22 @@
     // Fluxo preparado, mas INACESSÍVEL enquanto a trava local for false.
     // O servidor também mantém CONFIRMACAO_REAL_HABILITADA = false.
     async function confirmarPagamentoManual() {
-      if (!CONFIRMACAO_MANUAL_HABILITADA) return;
+      if (!CONFIRMACAO_MANUAL_HABILITADA || paymentConfirmationInProgress) return;
       const reserva = reservas.find(r => Number(r.id) === paymentModalReservaId);
       const txid = $('paymentTxidInput').value.trim();
-      if (!reserva || reserva.status !== 'aguardando_pix' ||
+      if (!reserva || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) ||
+          reserva.status !== 'aguardando_pix' || reserva.pagamento_confirmado_em ||
           !reserva.pix_enviado_em || !reserva.pix_txid ||
           txid !== reserva.pix_txid || !$('paymentBankChecked').checked) {
         showMessage($('paymentModalFeedback'), 'Confira o crédito bancário e o identificador Pix antes de continuar.', true);
         return;
       }
       const botao = $('submitPaymentModal');
+      paymentConfirmationInProgress = true;
+      paymentConfirmationAttempted = true;
       botao.disabled = true;
+      $('closePaymentModal').disabled = true;
+      $('cancelPaymentModal').disabled = true;
       showMessage($('paymentModalFeedback'), 'Processando confirmação. Não feche a janela.');
       try {
         const { data, error } = await supabase.auth.getSession();
@@ -606,12 +628,15 @@
       } finally {
         // Nunca reabilitar automaticamente após uma tentativa.
         botao.disabled = true;
+        paymentConfirmationInProgress = false;
+        $('closePaymentModal').disabled = false;
+        $('cancelPaymentModal').disabled = false;
       }
     }
     if (CONFIRMACAO_MANUAL_HABILITADA) {
       $('submitPaymentModal').addEventListener('click', confirmarPagamentoManual);
     }
-    // Nesta versão, o botão continua disabled e o handler não é registrado.
+    // Enquanto a trava local for false, o botão permanece desativado e não há handler.
 
     $('refreshBtn').addEventListener('click',loadReservations);
     $('statusFilter').addEventListener('change',renderReservations);
