@@ -80,6 +80,11 @@
     .pix-qr canvas { display:block; margin:12px auto; max-width:100%; height:auto; }
     .pix-qr .hint { max-width:460px; margin:12px auto 0; }
     .pix-qr .btn { margin-top:10px; }
+    .confirm-info { padding:20px; margin-bottom:20px; }
+    .confirm-info p { margin-bottom:10px; }
+    .confirm-steps { margin:10px 0 14px; padding-left:22px; color:var(--text); }
+    .confirm-steps li { margin-bottom:5px; }
+    .confirm-note { background:#fff7e8; border:1px solid #f0ddb5; padding:12px 14px; border-radius:9px; color:#725319; font-size:13px; }
     .footer { text-align:center; color:var(--muted); font-size:12px; margin-top:30px; }
     @media (max-width:720px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .cards { grid-template-columns:1fr; } .login { margin:35px auto; padding:25px; } .reservation-head { flex-wrap:wrap; } }
     @media (max-width:380px) { .stats { grid-template-columns:1fr 1fr; } .stat { padding:13px; } .stat strong { font-size:24px; } }
@@ -133,6 +138,17 @@
         <button class="btn" id="approveTest5Btn" type="button" disabled>Testar aprovação e envio do Pix — #5</button>
         <p class="hint" id="approveTest5Hint">Aguardando conferência da reserva...</p>
         <div id="approveTest5Message" class="message hidden" role="status" aria-live="polite"></div>
+      </section>
+      <section class="panel confirm-info" aria-labelledby="confirmInfoTitle">
+        <h2 id="confirmInfoTitle">Confirmação manual de pagamentos</h2>
+        <p class="muted">Preparação da próxima etapa. O sistema não consulta seu banco e não sabe se um Pix foi pago.</p>
+        <ol class="confirm-steps">
+          <li>Verifique no aplicativo do banco se o valor foi efetivamente creditado.</li>
+          <li>Confira beneficiário, valor e dados da transação; não confie somente em comprovantes enviados por alunos.</li>
+          <li>Após essa verificação, a confirmação poderá ser realizada pelo painel quando a função estiver habilitada e testada.</li>
+        </ol>
+        <div class="confirm-note">Modo seguro ativo: nenhum botão confirma pagamentos ou envia e-mails. As reservas de teste #3 e #5 não devem ser confirmadas sem pagamento real.</div>
+        <p class="hint" id="confirmSummary" aria-live="polite">Carregando reservas aguardando Pix...</p>
       </section>
       <div class="panel toolbar"><div class="field"><label for="statusFilter">Filtrar por status</label><select id="statusFilter"><option value="todos">Todas as reservas</option><option value="pendente">Pendentes</option><option value="aguardando_pix">Aguardando Pix</option><option value="confirmada">Confirmadas</option><option value="cancelada">Canceladas</option></select></div><div class="muted" id="listCount" aria-live="polite"></div></div>
       <div id="dashboardMessage" class="message hidden" role="alert"></div>
@@ -201,6 +217,8 @@
       $('countPix').textContent = reservas.filter(r => r.status === 'aguardando_pix').length;
       $('countConfirmed').textContent = reservas.filter(r => r.status === 'confirmada').length;
       $('countTotal').textContent = reservas.length;
+      const aguardandoPix = reservas.filter(r => r.status === 'aguardando_pix');
+      $('confirmSummary').textContent = `${aguardandoPix.length} reserva(s) aguardando Pix. Confirmação manual ainda desativada.`;
       $('listCount').textContent = `${selected.length} de ${reservas.length} reservas carregadas (máximo 100)`;
       $('emptyState').classList.toggle('hidden', selected.length !== 0);
       const teste5 = reservas.find(r => Number(r.id) === 5);
@@ -239,7 +257,7 @@
           const reject = el('button','btn btn-danger','Recusar'); reject.type='button'; reject.disabled=true; reject.title='Função ainda não implementada';
           actions.append(approve,reject);
         } else if (reserva.status === 'aguardando_pix') {
-          const confirm = el('button','btn','Confirmar pagamento'); confirm.type='button'; confirm.disabled=true; confirm.title='Disponível após os testes de segurança e pagamento'; actions.append(confirm);
+          const confirm = el('button','btn','Confirmar pagamento (desativado)'); confirm.type='button'; confirm.disabled=true; confirm.title='A confirmação só será liberada após verificação bancária e testes do servidor'; actions.append(confirm);
         }
         if (actions.childNodes.length) { card.append(actions,el('p','hint','Ações desativadas nesta versão de testes.')); }
         fragment.append(card);
