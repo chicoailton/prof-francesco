@@ -159,6 +159,12 @@
         <p class="hint" id="approveTest5Hint">Aguardando conferência da reserva...</p>
         <div id="approveTest5Message" class="message hidden" role="status" aria-live="polite"></div>
       </section>
+      <section class="panel pix-test" aria-labelledby="paymentConnectionTestTitle">
+        <h2 id="paymentConnectionTestTitle">Teste de confirmação de pagamento</h2>
+        <p class="muted">Verifica a autenticação do administrador e o modo seguro da função confirmar-pagamento. Este teste não envia dados de reservas, não confirma pagamentos e não envia e-mails.</p>
+        <button class="btn" id="testPaymentSafeBtn" type="button">Testar confirmação (modo seguro)</button>
+        <div id="testPaymentSafeMessage" class="message hidden" role="status" aria-live="polite"></div>
+      </section>
       <section class="panel confirm-info" aria-labelledby="confirmInfoTitle">
         <h2 id="confirmInfoTitle">Confirmação manual de pagamentos</h2>
         <p class="muted">Preparação da próxima etapa. O sistema não consulta seu banco e não sabe se um Pix foi pago.</p>
@@ -594,6 +600,43 @@
       } finally {
         button.disabled = false;
         button.textContent = 'Gerar Pix de teste';
+      }
+    });
+
+    $('testPaymentSafeBtn').addEventListener('click', async () => {
+      const button = $('testPaymentSafeBtn');
+      const feedback = $('testPaymentSafeMessage');
+      button.disabled = true;
+      button.textContent = 'Testando...';
+      hideMessage(feedback);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/confirmar-pagamento`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            apikey: SUPABASE_PUBLIC_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ teste: true }),
+          cache: 'no-store'
+        });
+        let result;
+        try { result = await response.json(); }
+        catch { throw new Error(`Resposta inválida do servidor (HTTP ${response.status}).`); }
+        if (!response.ok) throw new Error(result.erro || `Teste falhou (HTTP ${response.status}).`);
+        if (result.sucesso !== true || result.modo !== 'teste' ||
+            result.administrador_autorizado !== true ||
+            result.confirmacao_real_habilitada !== false) {
+          throw new Error('O servidor não confirmou todos os critérios do modo seguro. Não habilite pagamentos.');
+        }
+        showMessage(feedback, 'Teste aprovado: administrador autorizado, confirmação real desativada. Nenhuma reserva foi alterada e nenhum e-mail foi enviado.');
+      } catch (error) {
+        showMessage(feedback, error.message || 'Não foi possível validar a conexão segura.', true);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Testar confirmação (modo seguro)';
       }
     });
 
