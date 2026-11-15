@@ -209,6 +209,9 @@
     const SUPABASE_PUBLIC_KEY = 'sb_publishable_hBi4JsicphnM1MWugvAUZw_eRoa02O1';
     const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
 
+    // Duas travas independentes: interface e Edge Function. Não habilitar nesta fase.
+    const CONFIRMACAO_MANUAL_HABILITADA = false;
+
     const $ = (id) => document.getElementById(id);
     let reservas = [];
     let requestSequence = 0;
@@ -221,6 +224,7 @@
       paymentModalReservaId = null;
       $('paymentTxidInput').value = '';
       $('paymentBankChecked').checked = false;
+      $('submitPaymentModal').disabled = true;
       hideMessage($('paymentModalFeedback'));
       if (paymentModalPreviousFocus?.isConnected) paymentModalPreviousFocus.focus();
       paymentModalPreviousFocus = null;
@@ -255,6 +259,7 @@
       detail(details, 'Identificador Pix', reserva.pix_txid);
       $('paymentTxidInput').value = '';
       $('paymentBankChecked').checked = false;
+      $('submitPaymentModal').disabled = true;
       hideMessage($('paymentModalFeedback'));
       $('paymentModal').classList.remove('hidden');
       document.body.classList.add('modal-open');
@@ -553,7 +558,60 @@
         button.textContent = 'Testar conexão segura';
       }
     });
-    // submitPaymentModal permanece disabled, sem handler e sem requisição de confirmação.
+    // Fluxo preparado, mas INACESSÍVEL enquanto a trava local for false.
+    // O servidor também mantém CONFIRMACAO_REAL_HABILITADA = false.
+    async function confirmarPagamentoManual() {
+      if (!CONFIRMACAO_MANUAL_HABILITADA) return;
+      const reserva = reservas.find(r => Number(r.id) === paymentModalReservaId);
+      const txid = $('paymentTxidInput').value.trim();
+      if (!reserva || reserva.status !== 'aguardando_pix' ||
+          !reserva.pix_enviado_em || !reserva.pix_txid ||
+          txid !== reserva.pix_txid || !$('paymentBankChecked').checked) {
+        showMessage($('paymentModalFeedback'), 'Confira o crédito bancário e o identificador Pix antes de continuar.', true);
+        return;
+      }
+      const botao = $('submitPaymentModal');
+      botao.disabled = true;
+      showMessage($('paymentModalFeedback'), 'Processando confirmação. Não feche a janela.');
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Sessão expirada. Faça login novamente.');
+        const resposta = await fetch(`${SUPABASE_URL}/functions/v1/confirmar-pagamento`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            apikey: SUPABASE_PUBLIC_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            reserva_id: Number(reserva.id),
+            pix_txid: txid,
+            pagamento_verificado_no_banco: true
+          }),
+          cache: 'no-store'
+        });
+        const resultado = await resposta.json();
+        if (!resposta.ok || resultado.pagamento_confirmado !== true) {
+          throw new Error(resultado.erro || 'Não foi possível confirmar. Atualize a reserva antes de repetir.');
+        }
+        if (resultado.email_enviado === true) {
+          showMessage($('paymentModalFeedback'), 'Pagamento confirmado. E-mail aceito pelo Resend (entrega ainda não garantida).');
+        } else {
+          showMessage($('paymentModalFeedback'), resultado.aviso || 'Pagamento confirmado, mas o envio do e-mail precisa de verificação.', true);
+        }
+        await loadReservations();
+      } catch (erro) {
+        showMessage($('paymentModalFeedback'),
+          (erro.message || 'Resultado incerto.') + ' Consulte o status no Supabase antes de qualquer nova tentativa.', true);
+      } finally {
+        // Nunca reabilitar automaticamente após uma tentativa.
+        botao.disabled = true;
+      }
+    }
+    if (CONFIRMACAO_MANUAL_HABILITADA) {
+      $('submitPaymentModal').addEventListener('click', confirmarPagamentoManual);
+    }
+    // Nesta versão, o botão continua disabled e o handler não é registrado.
 
     $('refreshBtn').addEventListener('click',loadReservations);
     $('statusFilter').addEventListener('change',renderReservations);
