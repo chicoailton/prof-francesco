@@ -223,6 +223,7 @@
 
     const $ = (id) => document.getElementById(id);
     let reservas = [];
+    let historico = [];
     let exclusaoEmAndamento = false;
     let requestSequence = 0;
     let paymentModalReservaId = null;
@@ -305,7 +306,7 @@
       $('dashboard').classList.toggle('hidden', !logged);
       $('topActions').classList.toggle('hidden', !logged);
       $('userEmail').textContent = user?.email || '';
-      if (!logged) { closePaymentModal(); $('paymentList').replaceChildren(); $('historyList').replaceChildren(); reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
+      if (!logged) { closePaymentModal(); $('paymentList').replaceChildren(); $('historyList').replaceChildren(); historico = []; reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
     }
     function formatDate(date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Não informada';
@@ -334,7 +335,7 @@
 
     function renderHistory() {
       const container = $('historyList');
-      const excluidas = reservas.filter(estaExcluida);
+      const excluidas = historico;
       $('historyCount').textContent = String(excluidas.length);
       const fragment = document.createDocumentFragment();
       if (!excluidas.length) fragment.append(el('p', 'muted', 'Nenhuma reserva excluída retornada pelo servidor. Se houver exclusões anteriores, verifique a função listar-reservas.'));
@@ -344,7 +345,7 @@
         item.append(el('p', '', `E-mail: ${reserva.email || 'Não informado'}`));
         const horario = Array.isArray(reserva.horarios) ? reserva.horarios[0] : reserva.horarios;
         item.append(el('p', '', `Aula: ${formatDate(horario?.data)} às ${formatTime(horario?.hora)}`));
-        item.append(el('p', '', `Status anterior/registrado: ${statusLabel(reserva.status)}`));
+        item.append(el('p', '', `Status anterior: ${statusLabel(reserva.status_antes_exclusao || reserva.status)}`));
         if (reserva.excluida_em) {
          const data = new Date(reserva.excluida_em);
          item.append(el('p', '', `Excluída em: ${Number.isNaN(data.getTime()) ? reserva.excluida_em : data.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'}) + ' (Brasília)'}`));
@@ -363,7 +364,7 @@
         showMessage($('dashboardMessage'), 'Reserva com pagamento confirmado: exclusão bloqueada no painel. Verifique o reembolso e o procedimento administrativo.', true);
         return;
       }
-      if (!['pendente','aguardando_pix','cancelada'].includes(reserva.status)) return;
+      if (!['pendente','aguardando_pix'].includes(reserva.status)) return;
       if (!window.confirm(`Excluir a reserva #${reserva.id} de ${reserva.nome || 'aluno sem nome'}?\n\nEla deverá ir para o histórico e o horário será liberado pelo servidor. Esta ação não estorna pagamentos.`)) return;
       exclusaoEmAndamento = true;
       hideMessage($('dashboardMessage'));
@@ -463,7 +464,7 @@
         } else if (reserva.status === 'aguardando_pix') {
           const confirm = el('button','btn','Conferir pagamento (prévia)'); confirm.type='button'; confirm.disabled=!reserva.pix_txid || !reserva.pix_enviado_em; confirm.title='Abre apenas uma conferência visual'; confirm.addEventListener('click', () => openPaymentModal(reserva.id)); actions.append(confirm);
         }
-        if (['pendente','aguardando_pix','cancelada'].includes(reserva.status) && !reserva.pagamento_confirmado_em) {
+        if (['pendente','aguardando_pix'].includes(reserva.status) && !reserva.pagamento_confirmado_em) {
          const excluir = el('button','btn btn-danger','Excluir reserva');
          excluir.type = 'button';
          excluir.addEventListener('click', () => excluirReserva(reserva.id));
@@ -491,13 +492,14 @@
         let body;
         try { body = await response.json(); } catch { throw new Error(`Resposta inesperada do servidor (${response.status}).`); }
         if (!response.ok || !body.sucesso) throw new Error(body.erro || `Falha ao consultar reservas (${response.status}).`);
-        if (!Array.isArray(body.reservas)) throw new Error('Formato de reservas inesperado.');
+        if (!Array.isArray(body.reservas) || !Array.isArray(body.historico)) throw new Error('Formato de reservas ou histórico inesperado.');
         if (sequence !== requestSequence) return;
         reservas = body.reservas;
+        historico = body.historico;
         renderReservations();
       } catch (error) {
         if (sequence !== requestSequence) return;
-        reservas = []; renderReservations();
+        reservas = []; historico = []; renderReservations();
         showMessage($('dashboardMessage'), error.message || 'Não foi possível carregar as reservas.', true);
       } finally {
         if (sequence === requestSequence) { button.disabled=false; button.textContent='↻ Atualizar reservas'; }
