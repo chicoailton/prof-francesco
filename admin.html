@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Painel administrativo | Prof Francesco</title>
+  <style>
+    :root { --navy:#142c50; --blue:#234f88; --red:#d92f43; --bg:#f3f5f9; --text:#25364c; --muted:#66758a; --border:#e2e7ef; --white:#fff; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--text); background:var(--bg); }
+    button,input,select { font:inherit; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    .top { background:var(--navy); color:white; padding:22px 22px 18px; }
+    .top-inner { max-width:1100px; margin:auto; display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+    .brand { font-size:24px; font-weight:750; letter-spacing:-.6px; }
+    .brand small { display:block; font-size:11px; letter-spacing:1.6px; font-weight:500; color:#c9d6e8; margin-top:2px; }
+    .tricolor { height:4px; width:100px; margin-top:12px; background:linear-gradient(90deg,#3473d2 0 33%,#fff 33% 66%,#e44959 66%); }
+    .top-actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .top-actions span { font-size:13px; color:#d5e0f0; overflow-wrap:anywhere; }
+    main { max-width:1100px; margin:28px auto 70px; padding:0 18px; }
+    .panel { background:white; border:1px solid var(--border); border-radius:15px; box-shadow:0 6px 25px rgba(25,45,76,.045); }
+    .login { max-width:440px; margin:70px auto; padding:32px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { font-size:25px; color:var(--navy); letter-spacing:-.6px; margin-bottom:8px; }
+    h2 { font-size:19px; color:var(--navy); margin-bottom:5px; }
+    .muted { color:var(--muted); }
+    .login p { margin-bottom:24px; }
+    label { display:block; font-weight:650; font-size:13px; margin:0 0 7px; }
+    input,select { width:100%; border:1px solid #cdd6e3; background:white; border-radius:9px; padding:11px 12px; color:var(--text); outline-offset:2px; }
+    input:focus,select:focus { outline:2px solid #80a8dd; border-color:#80a8dd; }
+    .field { margin-bottom:18px; }
+    .btn { border:0; border-radius:9px; padding:10px 16px; font-weight:650; background:var(--navy); color:white; }
+    .btn:hover:not(:disabled) { background:var(--blue); }
+    .btn-light { background:white; color:var(--navy); border:1px solid #d4dce8; }
+    .btn-light:hover:not(:disabled) { background:#edf3fa; }
+    .btn-outline { background:transparent; border:1px solid #a6b9d2; color:white; }
+    .btn-outline:hover:not(:disabled) { background:#284366; }
+    .btn-danger { background:#fff5f5; color:#a32d3d; border:1px solid #f2cbd0; }
+    .btn-danger:hover:not(:disabled) { background:#ffe7ea; }
+    .full { width:100%; }
+    .message { border-radius:9px; padding:12px 14px; font-size:14px; margin:14px 0; background:#eff5fd; color:#234b7e; border:1px solid #d6e5f7; }
+    .message.error { background:#fff1f1; color:#9c2535; border-color:#f1ccd0; }
+    .hidden { display:none !important; }
+    .intro { display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; margin-bottom:20px; }
+    .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; margin-bottom:20px; }
+    .stat { padding:18px 20px; }
+    .stat strong { font-size:30px; display:block; color:var(--navy); line-height:1.25; }
+    .stat span { font-size:13px; color:var(--muted); }
+    .toolbar { padding:17px 20px; display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:end; margin-bottom:15px; }
+    .toolbar .field { margin:0; min-width:190px; }
+    .toolbar .field label { margin-bottom:5px; }
+    .toolbar select { padding:9px 11px; }
+    .cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; }
+    .reservation { padding:20px; min-width:0; }
+    .reservation-head { display:flex; justify-content:space-between; gap:12px; align-items:start; }
+    .reservation h3 { font-size:18px; color:var(--navy); margin-bottom:4px; overflow-wrap:anywhere; }
+    .reservation .email { font-size:13px; color:var(--muted); overflow-wrap:anywhere; }
+    .pill { border-radius:999px; padding:5px 10px; white-space:nowrap; font-size:12px; font-weight:700; background:#edf0f5; color:#526076; }
+    .pill.pendente { background:#fff3d9; color:#8b620a; }
+    .pill.aguardando_pix { background:#eaf1ff; color:#2456a4; }
+    .pill.confirmada { background:#e7f5ed; color:#1d7b48; }
+    .pill.cancelada { background:#fcecef; color:#a6384b; }
+    .details { background:#f5f7fa; border-radius:10px; padding:13px 14px; margin:17px 0; display:grid; gap:9px; }
+    .detail { display:flex; justify-content:space-between; gap:12px; font-size:13px; }
+    .detail span { color:var(--muted); }
+    .detail strong { text-align:right; overflow-wrap:anywhere; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .actions button { flex:1 1 155px; font-size:13px; }
+    .hint { font-size:12px; color:var(--muted); margin:11px 0 0; }
+    .empty { padding:42px 20px; text-align:center; color:var(--muted); }
+    .footer { text-align:center; color:var(--muted); font-size:12px; margin-top:30px; }
+    @media (max-width:720px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .cards { grid-template-columns:1fr; } .login { margin:35px auto; padding:25px; } .reservation-head { flex-wrap:wrap; } }
+    @media (max-width:380px) { .stats { grid-template-columns:1fr 1fr; } .stat { padding:13px; } .stat strong { font-size:24px; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div><div class="brand">Prof Francesco<small>PAINEL ADMINISTRATIVO</small></div><div class="tricolor"></div></div>
+      <div class="top-actions hidden" id="topActions"><span id="userEmail"></span><button class="btn btn-outline" id="logoutBtn" type="button">Sair</button></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel login" id="loginPanel">
+      <h1>Bem-vindo de volta</h1>
+      <p class="muted">Entre com sua conta de administrador para consultar as solicitações de aulas.</p>
+      <form id="loginForm">
+        <div class="field"><label for="email">E-mail</label><input type="email" id="email" autocomplete="username" required placeholder="Seu e-mail de administrador" /></div>
+        <div class="field"><label for="password">Senha</label><input type="password" id="password" autocomplete="current-password" required placeholder="Sua senha do Supabase" /></div>
+        <button class="btn full" type="submit" id="loginBtn">Entrar no painel</button>
+      </form>
+      <div id="loginMessage" class="message hidden" role="alert"></div>
+      <p class="hint">O acesso às reservas exige autenticação e autorização administrativa no servidor.</p>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <div class="intro"><div><h1>Reservas de aulas</h1><div class="muted">Gerencie as solicitações recebidas pelo site.</div></div><button class="btn btn-light" id="refreshBtn" type="button">↻ Atualizar reservas</button></div>
+      <div class="stats">
+        <div class="panel stat"><strong id="countPending">0</strong><span>Pendentes</span></div>
+        <div class="panel stat"><strong id="countPix">0</strong><span>Aguardando Pix</span></div>
+        <div class="panel stat"><strong id="countConfirmed">0</strong><span>Confirmadas</span></div>
+        <div class="panel stat"><strong id="countTotal">0</strong><span>Total carregado</span></div>
+      </div>
+      <div class="panel toolbar"><div class="field"><label for="statusFilter">Filtrar por status</label><select id="statusFilter"><option value="todos">Todas as reservas</option><option value="pendente">Pendentes</option><option value="aguardando_pix">Aguardando Pix</option><option value="confirmada">Confirmadas</option><option value="cancelada">Canceladas</option></select></div><div class="muted" id="listCount" aria-live="polite"></div></div>
+      <div id="dashboardMessage" class="message hidden" role="alert"></div>
+      <div id="reservations" class="cards" aria-live="polite"></div>
+      <div id="emptyState" class="panel empty hidden">Nenhuma reserva encontrada para este filtro.</div>
+      <p class="footer">Prof Francesco · Ações de pagamento desativadas durante a fase de testes.</p>
+    </section>
+  </main>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    // Use somente a URL base do projeto, sem /rest/v1/.
+    const SUPABASE_URL = 'https://mjnjgjtlxgucmsttyvac.supabase.co';
+    // Chave pública: adequada para uso no navegador. Nunca usar service_role aqui.
+    const SUPABASE_PUBLIC_KEY = 'sb_publishable_hBi4JsicphnM1MWugvAUZw_eRoa02O1';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
+
+    const $ = (id) => document.getElementById(id);
+    let reservas = [];
+    let requestSequence = 0;
+
+    function showMessage(element, message, isError = false) {
+      element.textContent = message;
+      element.classList.remove('hidden');
+      element.classList.toggle('error', isError);
+    }
+    function hideMessage(element) { element.classList.add('hidden'); element.textContent = ''; }
+    function setLoggedIn(user) {
+      const logged = Boolean(user);
+      $('loginPanel').classList.toggle('hidden', logged);
+      $('dashboard').classList.toggle('hidden', !logged);
+      $('topActions').classList.toggle('hidden', !logged);
+      $('userEmail').textContent = user?.email || '';
+      if (!logged) { reservas = []; $('reservations').replaceChildren(); }
+    }
+    function formatDate(date) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Não informada';
+      const [y, m, d] = date.split('-');
+      return `${d}/${m}/${y}`;
+    }
+    function formatTime(time) { return /^\d{2}:\d{2}/.test(time || '') ? time.slice(0, 5) + ' (Brasília)' : 'Não informado'; }
+    function formatMoney(cents) {
+      return Number.isSafeInteger(cents) && cents >= 0 ? (cents / 100).toLocaleString('pt-BR', {style:'currency', currency:'BRL'}) : 'A definir';
+    }
+    function statusLabel(status) {
+      return ({ pendente:'Pendente', aguardando_pix:'Aguardando Pix', confirmada:'Confirmada', cancelada:'Cancelada' })[status] || status || 'Desconhecido';
+    }
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = String(text);
+      return node;
+    }
+    function detail(parent, label, value) {
+      const row = el('div','detail');
+      row.append(el('span','',label), el('strong','',value));
+      parent.append(row);
+    }
+    function renderReservations() {
+      const filter = $('statusFilter').value;
+      const selected = filter === 'todos' ? reservas : reservas.filter(r => r.status === filter);
+      $('countPending').textContent = reservas.filter(r => r.status === 'pendente').length;
+      $('countPix').textContent = reservas.filter(r => r.status === 'aguardando_pix').length;
+      $('countConfirmed').textContent = reservas.filter(r => r.status === 'confirmada').length;
+      $('countTotal').textContent = reservas.length;
+      $('listCount').textContent = `${selected.length} de ${reservas.length} reservas carregadas (máximo 100)`;
+      $('emptyState').classList.toggle('hidden', selected.length !== 0);
+      const fragment = document.createDocumentFragment();
+      for (const reserva of selected) {
+        const card = el('article','panel reservation');
+        const head = el('div','reservation-head');
+        const person = el('div');
+        person.append(el('h3','',reserva.nome || 'Aluno sem nome'), el('div','email',reserva.email || 'E-mail não informado'));
+        const badge = el('span','pill ' + (['pendente','aguardando_pix','confirmada','cancelada'].includes(reserva.status) ? reserva.status : ''),statusLabel(reserva.status));
+        head.append(person,badge); card.append(head);
+        const details = el('div','details');
+        const horario = reserva.horarios && !Array.isArray(reserva.horarios) ? reserva.horarios : (Array.isArray(reserva.horarios) ? reserva.horarios[0] : null);
+        detail(details,'Reserva',`#${reserva.id}`);
+        detail(details,'Data da aula',formatDate(horario?.data));
+        detail(details,'Horário',formatTime(horario?.hora));
+        detail(details,'Tipo de aula',reserva.tipo_aula || 'Não informado');
+        detail(details,'Valor',formatMoney(reserva.valor_centavos));
+        if (reserva.pix_txid) detail(details,'Identificação Pix',reserva.pix_txid);
+        if (reserva.pix_enviado_em) detail(details,'Cobrança Pix','Envio registrado');
+        card.append(details);
+        const actions = el('div','actions');
+        if (reserva.status === 'pendente') {
+          const approve = el('button','btn','Aprovar e enviar Pix'); approve.type='button'; approve.disabled=true; approve.title='Disponível após os testes de segurança e pagamento';
+          const reject = el('button','btn btn-danger','Recusar'); reject.type='button'; reject.disabled=true; reject.title='Função ainda não implementada';
+          actions.append(approve,reject);
+        } else if (reserva.status === 'aguardando_pix') {
+          const confirm = el('button','btn','Confirmar pagamento'); confirm.type='button'; confirm.disabled=true; confirm.title='Disponível após os testes de segurança e pagamento'; actions.append(confirm);
+        }
+        if (actions.childNodes.length) { card.append(actions,el('p','hint','Ações desativadas nesta versão de testes.')); }
+        fragment.append(card);
+      }
+      $('reservations').replaceChildren(fragment);
+    }
+
+    async function loadReservations() {
+      const sequence = ++requestSequence;
+      const button = $('refreshBtn');
+      button.disabled = true; button.textContent = 'Atualizando...';
+      hideMessage($('dashboardMessage'));
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session) throw new Error('Sessão expirada. Entre novamente.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/listar-reservas`, {
+          method:'GET',
+          headers:{'Authorization':`Bearer ${sessionData.session.access_token}`, 'apikey':SUPABASE_PUBLIC_KEY},
+          cache:'no-store'
+        });
+        let body;
+        try { body = await response.json(); } catch { throw new Error(`Resposta inesperada do servidor (${response.status}).`); }
+        if (!response.ok || !body.sucesso) throw new Error(body.erro || `Falha ao consultar reservas (${response.status}).`);
+        if (!Array.isArray(body.reservas)) throw new Error('Formato de reservas inesperado.');
+        if (sequence !== requestSequence) return;
+        reservas = body.reservas;
+        renderReservations();
+      } catch (error) {
+        if (sequence !== requestSequence) return;
+        reservas = []; renderReservations();
+        showMessage($('dashboardMessage'), error.message || 'Não foi possível carregar as reservas.', true);
+      } finally {
+        if (sequence === requestSequence) { button.disabled=false; button.textContent='↻ Atualizar reservas'; }
+      }
+    }
+
+    $('loginForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const button = $('loginBtn'); button.disabled=true; button.textContent='Entrando...';
+      hideMessage($('loginMessage'));
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
+        if (error) throw error;
+        $('password').value='';
+        setLoggedIn(data.user);
+        await loadReservations();
+        // Se o usuário não for administrador, a função retornará acesso negado.
+        // O login não concede acesso aos dados sem autorização no backend.
+      } catch (error) {
+        showMessage($('loginMessage'),error.message || 'Falha no login.',true);
+      } finally { button.disabled=false; button.textContent='Entrar no painel'; }
+    });
+    $('logoutBtn').addEventListener('click',async () => {
+      ++requestSequence;
+      await supabase.auth.signOut();
+      setLoggedIn(null);
+      hideMessage($('dashboardMessage'));
+      hideMessage($('loginMessage'));
+    });
+    $('refreshBtn').addEventListener('click',loadReservations);
+    $('statusFilter').addEventListener('change',renderReservations);
+
+    // Restaurar a sessão existente, sem exibir reservas antes da autorização do backend.
+    (async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!error && data.session?.user) {
+        setLoggedIn(data.session.user);
+        await loadReservations();
+      } else {
+        setLoggedIn(null);
+      }
+    })();
+  </script>
+</body>
+</html>
