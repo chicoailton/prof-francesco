@@ -129,7 +129,7 @@
       </section>
       <section class="panel pix-test" aria-labelledby="approvalTestTitle">
         <h2 id="approvalTestTitle">Teste controlado de aprovação — Reserva #5</h2>
-        <p class="muted">Somente a reserva #5 (Teste QR Code), para chicoinmundo@gmail.com. Confira data e horário no cartão da reserva antes de confirmar. Esta ação é REAL: aprova a reserva e tenta enviar o Pix de R$ 150,00 por e-mail. Não efetue o pagamento.</p>
+        <p class="muted">Somente a reserva #5 (Test QR Code), para chicoinmundo@gmail.com. Confira data e horário no cartão da reserva antes de confirmar. Esta ação é REAL: aprova a reserva e tenta enviar o Pix de R$ 150,00 por e-mail. Não efetue o pagamento.</p>
         <button class="btn" id="approveTest5Btn" type="button" disabled>Testar aprovação e envio do Pix — #5</button>
         <p class="hint" id="approveTest5Hint">Aguardando conferência da reserva...</p>
         <div id="approveTest5Message" class="message hidden" role="status" aria-live="polite"></div>
@@ -206,7 +206,7 @@
       const teste5 = reservas.find(r => Number(r.id) === 5);
       const horario5 = Array.isArray(teste5?.horarios) ? teste5.horarios[0] : teste5?.horarios;
       const pronto5 = teste5?.status === 'pendente' &&
-        teste5?.nome?.trim().toLowerCase() === 'teste qr code' &&
+        teste5?.nome?.trim().toLowerCase() === 'test qr code' &&
         teste5?.email?.trim().toLowerCase() === 'chicoinmundo@gmail.com' &&
         Boolean(horario5?.data && horario5?.hora) &&
         !teste5?.pix_txid && !teste5?.pix_enviado_em && !teste5?.pix_envio_iniciado_em;
@@ -372,7 +372,7 @@
       const teste = reservas.find(r => Number(r.id) === 5);
       const horario = Array.isArray(teste?.horarios) ? teste.horarios[0] : teste?.horarios;
       if (teste?.status !== 'pendente' ||
-          teste?.nome?.trim().toLowerCase() !== 'teste qr code' ||
+          teste?.nome?.trim().toLowerCase() !== 'test qr code' ||
           teste?.email?.trim().toLowerCase() !== 'chicoinmundo@gmail.com' ||
           !horario?.data || !horario?.hora ||
           teste?.pix_txid || teste?.pix_enviado_em || teste?.pix_envio_iniciado_em) {
@@ -381,7 +381,7 @@
       }
       const autorizado = window.confirm(
         'CONFIRMAR ENVIO REAL\n\n' +
-        'Reserva: #5 — Teste QR Code\n' +
+        'Reserva: #5 — Test QR Code\n' +
         'Destinatário: chicoinmundo@gmail.com\n' +
         `Aula: ${formatDate(horario.data)} às ${formatTime(horario.hora)}\n` +
         'Pix: R$ 150,00\n\n' +
