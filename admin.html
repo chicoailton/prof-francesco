@@ -76,6 +76,10 @@
     .pix-result dl { display:grid; grid-template-columns:1fr auto; gap:8px 16px; margin:0; }
     .pix-result dt { color:var(--muted); }
     .pix-result dd { margin:0; font-weight:700; text-align:right; }
+    .pix-qr { margin-top:18px; text-align:center; padding:18px; background:white; border:1px solid var(--border); border-radius:10px; }
+    .pix-qr canvas { display:block; margin:12px auto; max-width:100%; height:auto; }
+    .pix-qr .hint { max-width:460px; margin:12px auto 0; }
+    .pix-qr .btn { margin-top:10px; }
     .footer { text-align:center; color:var(--muted); font-size:12px; margin-top:30px; }
     @media (max-width:720px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .cards { grid-template-columns:1fr; } .login { margin:35px auto; padding:25px; } .reservation-head { flex-wrap:wrap; } }
     @media (max-width:380px) { .stats { grid-template-columns:1fr 1fr; } .stat { padding:13px; } .stat strong { font-size:24px; } }
@@ -112,10 +116,16 @@
       </div>
       <section class="panel pix-test" aria-labelledby="pixTestTitle">
         <h2 id="pixTestTitle">Teste de Pix</h2>
-        <p class="muted">Valide a geração do código Pix de R$ 150,00 sem alterar reservas ou enviar e-mails. O código real não será exibido.</p>
+        <p class="muted">Valide a geração do código Pix de R$ 150,00 sem alterar reservas ou enviar e-mails. O código Copia e Cola não será exibido em texto; o QR Code de teste conterá a chave Pix real.</p>
         <button class="btn" id="testPixBtn" type="button">Gerar Pix de teste</button>
         <div id="pixTestMessage" class="message hidden" role="status" aria-live="polite"></div>
         <div id="pixTestResult" class="pix-result hidden" aria-live="polite"></div>
+        <div id="pixQrPanel" class="pix-qr hidden">
+          <h3>QR Code Pix de teste</h3>
+          <canvas id="pixQrCanvas" width="280" height="280" aria-label="QR Code Pix para validação no aplicativo bancário"></canvas>
+          <p class="hint"><strong>Contém sua chave Pix verdadeira.</strong> Não publique nem compartilhe uma captura do QR Code. No aplicativo do banco, confira beneficiário e R$ 150,00, mas <strong>não conclua o pagamento</strong>.</p>
+          <button class="btn btn-light" id="hidePixQrBtn" type="button">Ocultar QR Code</button>
+        </div>
       </section>
       <div class="panel toolbar"><div class="field"><label for="statusFilter">Filtrar por status</label><select id="statusFilter"><option value="todos">Todas as reservas</option><option value="pendente">Pendentes</option><option value="aguardando_pix">Aguardando Pix</option><option value="confirmada">Confirmadas</option><option value="cancelada">Canceladas</option></select></div><div class="muted" id="listCount" aria-live="polite"></div></div>
       <div id="dashboardMessage" class="message hidden" role="alert"></div>
@@ -150,7 +160,7 @@
       $('dashboard').classList.toggle('hidden', !logged);
       $('topActions').classList.toggle('hidden', !logged);
       $('userEmail').textContent = user?.email || '';
-      if (!logged) { reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); }
+      if (!logged) { reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
     }
     function formatDate(date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Não informada';
@@ -268,6 +278,12 @@
       hideMessage($('dashboardMessage'));
       hideMessage($('loginMessage'));
     });
+    $('hidePixQrBtn').addEventListener('click', () => {
+      $('pixQrPanel').classList.add('hidden');
+      const canvas = $('pixQrCanvas');
+      canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
     $('testPixBtn').addEventListener('click', async () => {
       const button = $('testPixBtn');
       const result = $('pixTestResult');
@@ -276,6 +292,7 @@
       hideMessage($('pixTestMessage'));
       result.replaceChildren();
       result.classList.add('hidden');
+      $('pixQrPanel').classList.add('hidden');
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error || !data.session) throw new Error('Sessão expirada. Entre novamente.');
@@ -308,7 +325,19 @@
         result.append(dl);
         result.classList.remove('hidden');
         const passou = response.status === 200 && body.valor === '150.00' && body.moeda === 'BRL' && body.txid === 'TESTE150' && body.crc_valido === true && typeof body.pix_copia_cola === 'string' && body.pix_copia_cola.length > 0;
-        showMessage($('pixTestMessage'), passou ? 'Teste técnico concluído. Ainda falta validar o código no aplicativo bancário, sem pagar.' : 'O teste respondeu, mas algum dado não corresponde ao esperado. Não ative os pagamentos.', !passou);
+        if (!passou) {
+          showMessage($('pixTestMessage'), 'O teste respondeu, mas algum dado não corresponde ao esperado. Não ative os pagamentos.', true);
+          return;
+        }
+        // A biblioteca é carregada de um CDN, mas o payload Pix é processado
+        // localmente no navegador. Não usamos serviços externos de geração de QR.
+        const { default: QRCode } = await import('https://esm.sh/qrcode@1.5.4');
+        await QRCode.toCanvas($('pixQrCanvas'), body.pix_copia_cola, {
+          width: 280, margin: 3, errorCorrectionLevel: 'M',
+          color: { dark: '#142c50', light: '#ffffff' }
+        });
+        $('pixQrPanel').classList.remove('hidden');
+        showMessage($('pixTestMessage'), 'Teste técnico concluído. Escaneie o QR Code com seu banco, confira os dados e não pague. Não compartilhe capturas do QR Code.');
       } catch (error) {
         showMessage($('pixTestMessage'), error.message || 'Falha ao testar Pix.', true);
       } finally {
