@@ -194,6 +194,7 @@
       <div class="confirm-note">Modo seguro: esta janela não confirma pagamentos nem envia e-mails. As reservas de teste #3 e #5 não devem ser confirmadas sem pagamento real.</div>
       <div class="modal-actions">
         <button class="btn btn-light" id="cancelPaymentModal" type="button">Fechar</button>
+        <button class="btn btn-light" id="testPaymentConnection" type="button">Testar conexão segura</button>
         <button class="btn" id="submitPaymentModal" type="button" disabled>Confirmar e enviar e-mail — desativado</button>
       </div>
     </section>
@@ -518,6 +519,40 @@
     });
     $('paymentTxidInput').addEventListener('input', updatePaymentModalFeedback);
     $('paymentBankChecked').addEventListener('change', updatePaymentModalFeedback);
+    // Teste administrativo seguro: envia apenas {teste:true}, sem ID, TXID ou declaração bancária.
+    $('testPaymentConnection').addEventListener('click', async () => {
+      const button = $('testPaymentConnection');
+      button.disabled = true;
+      button.textContent = 'Testando...';
+      hideMessage($('paymentModalFeedback'));
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/confirmar-pagamento`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${data.session.access_token}`,
+            'apikey': SUPABASE_PUBLIC_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ teste: true }),
+          cache: 'no-store'
+        });
+        let result;
+        try { result = await response.json(); }
+        catch { throw new Error(`Resposta inválida do servidor (HTTP ${response.status}).`); }
+        if (response.status !== 200 || result.sucesso !== true || result.modo !== 'teste' ||
+            result.administrador_autorizado !== true || result.confirmacao_real_habilitada !== false) {
+          throw new Error('O servidor não confirmou o modo seguro. Não habilite pagamentos.');
+        }
+        showMessage($('paymentModalFeedback'), 'Conexão segura validada. Administrador autorizado; confirmação real bloqueada. Nenhuma reserva alterada e nenhum e-mail enviado.');
+      } catch (error) {
+        showMessage($('paymentModalFeedback'), error.message || 'Falha no teste de conexão.', true);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Testar conexão segura';
+      }
+    });
     // submitPaymentModal permanece disabled, sem handler e sem requisição de confirmação.
 
     $('refreshBtn').addEventListener('click',loadReservations);
