@@ -880,7 +880,7 @@ footer strong {
       Depois de combinarmos a aula, você receberá os dados para pagamento por Pix. Não é necessário inserir dados bancários neste site.
      </p>
 <p class="notice">
-      Os horários são consultados no Supabase e exibidos no fuso de Brasília. O envio do formulário por e-mail não bloqueia o horário automaticamente.
+      Os horários livres são consultados no Supabase e exibidos no fuso de Brasília. O envio registra uma solicitação pendente; a aula depende de confirmação e pagamento.
      </p>
 </div>
 <div class="calendar">
@@ -921,7 +921,7 @@ footer strong {
        Solicitar agendamento
       </button>
 <p class="notice" id="feedback" role="status">
-       Ao clicar, será aberto seu aplicativo de e-mail com a solicitação pronta. O horário não é reservado automaticamente.
+       Selecione um horário e envie sua solicitação. A aula será confirmada após minha resposta e a confirmação do pagamento.
       </p>
 </form>
 </div>
@@ -952,7 +952,7 @@ footer strong {
      O horário fica reservado automaticamente?
     </summary>
 <p>
-     Não. O formulário envia uma solicitação por e-mail. A reserva depende de confirmação.
+     O envio registra uma solicitação pendente e retira o horário da lista de horários livres. A aula depende de confirmação e pagamento.
     </p>
 </details>
 </section>
@@ -973,7 +973,6 @@ footer strong {
 <script>
 const SUPABASE_URL = 'https://mjnjgjtlxgucmsttyvac.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_hBi4JsicphnM1MWugvAUZw_eRoa02O1';
-const EMAIL_PROFESSOR = 'chicoailton@gmail.com'; // Substitua pelo seu e-mail real
 const FUSO_HORARIO = 'America/Sao_Paulo';
 const days = document.getElementById('days');
 const times = document.getElementById('times');
@@ -1005,11 +1004,21 @@ async function loadMonth() {
   const y=view.getFullYear(), m=view.getMonth();
   const start=dateKey(y,m,1);
   const last=dateKey(y,m,new Date(y,m+1,0).getDate());
-  const url = `${SUPABASE_URL}/rest/v1/horarios?select=data,hora&disponivel=eq.true&data=gte.${start}&data=lte.${last}&order=data.asc,hora.asc&limit=1000`;
+  const url = `${SUPABASE_URL}/rest/v1/rpc/consultar_horarios_livres`;
   try {
-    const response = await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`}});
-    if(!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-    const records=await response.json();
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+    const allRecords = await response.json();
+    if (!Array.isArray(allRecords)) throw new Error('Resposta inesperada da consulta de horários');
+    const records = allRecords.filter(item => item.data >= start && item.data <= last);
     if(id!==requestId) return;
     for(const item of records) {
       const time=String(item.hora).slice(0,5);
@@ -1062,21 +1071,47 @@ document.getElementById('prev').onclick=()=>{
 document.getElementById('next').onclick=()=>{
   view=new Date(view.getFullYear(),view.getMonth()+1,1);loadMonth();
 };
-document.getElementById('booking-form').onsubmit=async e=>{
+document.getElementById('booking-form').onsubmit = async e => {
   e.preventDefault();
-  if(!selectedDate||!selectedTime||!availableTimes(selectedDate).includes(selectedTime)) {
-    feedback.textContent='Selecione uma data e um horário disponíveis.';return;
+  if (!selectedDate || !selectedTime || !availableTimes(selectedDate).includes(selectedTime)) {
+    feedback.textContent = 'Selecione uma data e um horário disponíveis.';
+    return;
   }
-  if(EMAIL_PROFESSOR.includes('EXEMPLO.COM')) {
-    feedback.textContent='Configure o e-mail do professor no HTML antes de receber solicitações.';return;
+
+  const nome = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const tipo_aula = document.getElementById('kind').value;
+  const botao = e.currentTarget.querySelector('button[type="submit"]');
+  botao.disabled = true;
+  feedback.textContent = 'Enviando solicitação...';
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/solicitar-reserva`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY
+      },
+      body: JSON.stringify({
+        data: selectedDate,
+        hora: selectedTime,
+        nome,
+        email,
+        tipo_aula
+      })
+    });
+    const resultado = await response.json();
+    if (!response.ok) throw new Error(resultado.erro || 'Não foi possível solicitar a aula.');
+
+    feedback.textContent = 'Solicitação registrada com sucesso! Aguarde a confirmação da aula e as instruções para pagamento por Pix.';
+    document.getElementById('booking-form').reset();
+    await loadMonth();
+    feedback.textContent = 'Solicitação registrada com sucesso! Aguarde a confirmação da aula e as instruções para pagamento por Pix.';
+  } catch (error) {
+    feedback.textContent = error.message || 'Erro ao enviar solicitação. Tente novamente.';
+  } finally {
+    botao.disabled = false;
   }
-  const nome=document.getElementById('name').value.trim();
-  const email=document.getElementById('email').value.trim();
-  const tipo=document.getElementById('kind').value;
-  const subject=encodeURIComponent('Solicitação de aula — Prof Francesco');
-  const body=encodeURIComponent(`Olá, gostaria de solicitar uma aula.\n\nNome: ${nome}\nE-mail: ${email}\nModalidade: ${tipo}\nData: ${selectedDate}\nHorário: ${selectedTime} (${FUSO_HORARIO})\n\nAguardo confirmação de disponibilidade e instruções para Pix.`);
-  window.location.href=`mailto:${EMAIL_PROFESSOR}?subject=${subject}&body=${body}`;
-  feedback.textContent='Seu aplicativo de e-mail foi aberto. Envie a mensagem para solicitar a aula. O horário ainda não está reservado automaticamente.';
 };
 document.getElementById('year').textContent=new Date().getFullYear();
 loadMonth();
