@@ -90,6 +90,16 @@
     .payment-item h3 { font-size:16px; margin:0 0 3px; color:var(--navy); }
     .payment-item .details { margin:12px 0; background:white; }
     .payment-item .btn { margin-top:4px; }
+    .modal-backdrop { position:fixed; inset:0; z-index:1000; background:rgba(11,25,45,.65); display:flex; align-items:center; justify-content:center; padding:18px; }
+    .modal-dialog { background:white; border-radius:15px; padding:24px; width:min(100%,520px); max-height:90vh; overflow:auto; box-shadow:0 18px 60px rgba(0,0,0,.24); }
+    .modal-head { display:flex; justify-content:space-between; align-items:start; gap:12px; }
+    .modal-head h2 { margin:0 0 12px; }
+    .modal-close { border:0; background:transparent; font-size:25px; line-height:1; color:var(--muted); padding:0 5px; }
+    .modal-check { display:flex; gap:10px; align-items:start; font-size:13px; font-weight:500; margin:15px 0; }
+    .modal-check input { width:auto; margin-top:3px; }
+    .modal-actions { display:flex; gap:10px; margin-top:15px; }
+    .modal-actions .btn { flex:1; }
+    body.modal-open { overflow:hidden; }
     .footer { text-align:center; color:var(--muted); font-size:12px; margin-top:30px; }
     @media (max-width:720px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .cards { grid-template-columns:1fr; } .login { margin:35px auto; padding:25px; } .reservation-head { flex-wrap:wrap; } }
     @media (max-width:380px) { .stats { grid-template-columns:1fr 1fr; } .stat { padding:13px; } .stat strong { font-size:24px; } }
@@ -164,6 +174,31 @@
     </section>
   </main>
 
+  <div id="paymentModal" class="modal-backdrop hidden" role="presentation">
+    <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle" aria-describedby="paymentModalDescription">
+      <div class="modal-head">
+        <h2 id="paymentModalTitle">Conferir pagamento Pix</h2>
+        <button class="modal-close" id="closePaymentModal" type="button" aria-label="Fechar janela">×</button>
+      </div>
+      <p id="paymentModalDescription" class="muted">Prévia de conferência manual. Nenhum pagamento será confirmado nesta versão.</p>
+      <div class="details" id="paymentModalDetails"></div>
+      <div class="field">
+        <label for="paymentTxidInput">Digite o identificador Pix exibido acima</label>
+        <input id="paymentTxidInput" type="text" autocomplete="off" spellcheck="false" placeholder="Ex.: AULA5" />
+      </div>
+      <label class="modal-check" for="paymentBankChecked">
+        <input id="paymentBankChecked" type="checkbox" />
+        <span>Conferi no aplicativo do banco o crédito efetivo, o valor e o beneficiário. Não me baseei apenas em comprovante enviado pelo aluno.</span>
+      </label>
+      <div id="paymentModalFeedback" class="message hidden" role="status" aria-live="polite"></div>
+      <div class="confirm-note">Modo seguro: esta janela não confirma pagamentos nem envia e-mails. As reservas de teste #3 e #5 não devem ser confirmadas sem pagamento real.</div>
+      <div class="modal-actions">
+        <button class="btn btn-light" id="cancelPaymentModal" type="button">Fechar</button>
+        <button class="btn" id="submitPaymentModal" type="button" disabled>Confirmar e enviar e-mail — desativado</button>
+      </div>
+    </section>
+  </div>
+
   <script type="module">
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -176,6 +211,54 @@
     const $ = (id) => document.getElementById(id);
     let reservas = [];
     let requestSequence = 0;
+    let paymentModalReservaId = null;
+    let paymentModalPreviousFocus = null;
+
+    function closePaymentModal() {
+      $('paymentModal').classList.add('hidden');
+      document.body.classList.remove('modal-open');
+      paymentModalReservaId = null;
+      $('paymentTxidInput').value = '';
+      $('paymentBankChecked').checked = false;
+      hideMessage($('paymentModalFeedback'));
+      if (paymentModalPreviousFocus?.isConnected) paymentModalPreviousFocus.focus();
+      paymentModalPreviousFocus = null;
+    }
+
+    function updatePaymentModalFeedback() {
+      if (paymentModalReservaId === null) return;
+      const reserva = reservas.find(r => Number(r.id) === paymentModalReservaId);
+      if (!reserva || reserva.status !== 'aguardando_pix') {
+        showMessage($('paymentModalFeedback'), 'Reserva não disponível. Feche a janela e atualize as reservas.', true);
+        return;
+      }
+      const matches = $('paymentTxidInput').value.trim() === reserva.pix_txid;
+      const checked = $('paymentBankChecked').checked;
+      if (matches && checked) {
+        showMessage($('paymentModalFeedback'), 'Conferência preenchida. A confirmação permanece desativada durante os testes.');
+      } else {
+        hideMessage($('paymentModalFeedback'));
+      }
+    }
+
+    function openPaymentModal(reservaId) {
+      const reserva = reservas.find(r => Number(r.id) === Number(reservaId));
+      if (!reserva || reserva.status !== 'aguardando_pix' || !reserva.pix_txid || !reserva.pix_enviado_em) return;
+      paymentModalReservaId = Number(reserva.id);
+      paymentModalPreviousFocus = document.activeElement;
+      const details = $('paymentModalDetails');
+      details.replaceChildren();
+      detail(details, 'Reserva', `#${reserva.id} — ${reserva.nome || 'Aluno sem nome'}`);
+      detail(details, 'E-mail', reserva.email || 'Não informado');
+      detail(details, 'Valor', formatMoney(reserva.valor_centavos));
+      detail(details, 'Identificador Pix', reserva.pix_txid);
+      $('paymentTxidInput').value = '';
+      $('paymentBankChecked').checked = false;
+      hideMessage($('paymentModalFeedback'));
+      $('paymentModal').classList.remove('hidden');
+      document.body.classList.add('modal-open');
+      $('paymentTxidInput').focus();
+    }
 
     function showMessage(element, message, isError = false) {
       element.textContent = message;
@@ -189,7 +272,7 @@
       $('dashboard').classList.toggle('hidden', !logged);
       $('topActions').classList.toggle('hidden', !logged);
       $('userEmail').textContent = user?.email || '';
-      if (!logged) { $('paymentList').replaceChildren(); reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
+      if (!logged) { closePaymentModal(); $('paymentList').replaceChildren(); reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
     }
     function formatDate(date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Não informada';
@@ -233,9 +316,11 @@
         detail(details,'Identificador Pix',reserva.pix_txid || 'Não informado');
         detail(details,'Cobrança enviada',reserva.pix_enviado_em ? 'Registro existente' : 'Sem registro');
         item.append(details);
-        const btn = el('button','btn','Confirmar pagamento — desativado');
-        btn.type = 'button'; btn.disabled = true;
-        btn.title = 'A confirmação real permanece bloqueada durante os testes';
+        const btn = el('button','btn','Conferir pagamento (prévia)');
+        btn.type = 'button';
+        btn.disabled = !reserva.pix_txid || !reserva.pix_enviado_em;
+        btn.title = 'Abrir conferência visual; nenhuma confirmação será executada';
+        btn.addEventListener('click', () => openPaymentModal(reserva.id));
         item.append(btn);
         if (Number(reserva.id) === 3 || Number(reserva.id) === 5) {
           item.append(el('p','hint','Reserva usada nos testes: não confirmar sem crédito real verificado no banco.'));
@@ -285,9 +370,9 @@
           const reject = el('button','btn btn-danger','Recusar'); reject.type='button'; reject.disabled=true; reject.title='Função ainda não implementada';
           actions.append(approve,reject);
         } else if (reserva.status === 'aguardando_pix') {
-          const confirm = el('button','btn','Confirmar pagamento (desativado)'); confirm.type='button'; confirm.disabled=true; confirm.title='A confirmação só será liberada após verificação bancária e testes do servidor'; actions.append(confirm);
+          const confirm = el('button','btn','Conferir pagamento (prévia)'); confirm.type='button'; confirm.disabled=!reserva.pix_txid || !reserva.pix_enviado_em; confirm.title='Abre apenas uma conferência visual'; confirm.addEventListener('click', () => openPaymentModal(reserva.id)); actions.append(confirm);
         }
-        if (actions.childNodes.length) { card.append(actions,el('p','hint','Ações desativadas nesta versão de testes.')); }
+        if (actions.childNodes.length) { card.append(actions,el('p','hint',reserva.status === 'aguardando_pix' ? 'Conferência visual disponível; confirmação real e envio de e-mail desativados.' : 'Ações desativadas nesta versão de testes.')); }
         fragment.append(card);
       }
       $('reservations').replaceChildren(fragment);
@@ -414,6 +499,26 @@
     });
 
     // A aprovação experimental #5 foi encerrada. Nenhum handler de envio é registrado.
+
+    $('closePaymentModal').addEventListener('click', closePaymentModal);
+    $('cancelPaymentModal').addEventListener('click', closePaymentModal);
+    $('paymentModal').addEventListener('click', (event) => {
+      if (event.target === $('paymentModal')) closePaymentModal();
+    });
+    document.addEventListener('keydown', (event) => {
+      if ($('paymentModal').classList.contains('hidden')) return;
+      if (event.key === 'Escape') { closePaymentModal(); return; }
+      if (event.key === 'Tab') {
+        const focusables = [...$('paymentModal').querySelectorAll('button:not(:disabled), input:not(:disabled)')];
+        if (!focusables.length) return;
+        const first = focusables[0], last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    });
+    $('paymentTxidInput').addEventListener('input', updatePaymentModalFeedback);
+    $('paymentBankChecked').addEventListener('change', updatePaymentModalFeedback);
+    // submitPaymentModal permanece disabled, sem handler e sem requisição de confirmação.
 
     $('refreshBtn').addEventListener('click',loadReservations);
     $('statusFilter').addEventListener('change',renderReservations);
