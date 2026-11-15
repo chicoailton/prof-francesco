@@ -70,6 +70,12 @@
     .actions button { flex:1 1 155px; font-size:13px; }
     .hint { font-size:12px; color:var(--muted); margin:11px 0 0; }
     .empty { padding:42px 20px; text-align:center; color:var(--muted); }
+    .pix-test { padding:20px; margin-bottom:20px; }
+    .pix-test p { margin-bottom:12px; }
+    .pix-result { margin-top:14px; padding:14px; background:#f5f7fa; border-radius:9px; }
+    .pix-result dl { display:grid; grid-template-columns:1fr auto; gap:8px 16px; margin:0; }
+    .pix-result dt { color:var(--muted); }
+    .pix-result dd { margin:0; font-weight:700; text-align:right; }
     .footer { text-align:center; color:var(--muted); font-size:12px; margin-top:30px; }
     @media (max-width:720px) { .stats { grid-template-columns:repeat(2,minmax(0,1fr)); } .cards { grid-template-columns:1fr; } .login { margin:35px auto; padding:25px; } .reservation-head { flex-wrap:wrap; } }
     @media (max-width:380px) { .stats { grid-template-columns:1fr 1fr; } .stat { padding:13px; } .stat strong { font-size:24px; } }
@@ -104,6 +110,13 @@
         <div class="panel stat"><strong id="countConfirmed">0</strong><span>Confirmadas</span></div>
         <div class="panel stat"><strong id="countTotal">0</strong><span>Total carregado</span></div>
       </div>
+      <section class="panel pix-test" aria-labelledby="pixTestTitle">
+        <h2 id="pixTestTitle">Teste de Pix</h2>
+        <p class="muted">Valide a geração do código Pix de R$ 150,00 sem alterar reservas ou enviar e-mails. O código real não será exibido.</p>
+        <button class="btn" id="testPixBtn" type="button">Gerar Pix de teste</button>
+        <div id="pixTestMessage" class="message hidden" role="status" aria-live="polite"></div>
+        <div id="pixTestResult" class="pix-result hidden" aria-live="polite"></div>
+      </section>
       <div class="panel toolbar"><div class="field"><label for="statusFilter">Filtrar por status</label><select id="statusFilter"><option value="todos">Todas as reservas</option><option value="pendente">Pendentes</option><option value="aguardando_pix">Aguardando Pix</option><option value="confirmada">Confirmadas</option><option value="cancelada">Canceladas</option></select></div><div class="muted" id="listCount" aria-live="polite"></div></div>
       <div id="dashboardMessage" class="message hidden" role="alert"></div>
       <div id="reservations" class="cards" aria-live="polite"></div>
@@ -137,7 +150,7 @@
       $('dashboard').classList.toggle('hidden', !logged);
       $('topActions').classList.toggle('hidden', !logged);
       $('userEmail').textContent = user?.email || '';
-      if (!logged) { reservas = []; $('reservations').replaceChildren(); }
+      if (!logged) { reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); }
     }
     function formatDate(date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Não informada';
@@ -255,6 +268,55 @@
       hideMessage($('dashboardMessage'));
       hideMessage($('loginMessage'));
     });
+    $('testPixBtn').addEventListener('click', async () => {
+      const button = $('testPixBtn');
+      const result = $('pixTestResult');
+      button.disabled = true;
+      button.textContent = 'Testando...';
+      hideMessage($('pixTestMessage'));
+      result.replaceChildren();
+      result.classList.add('hidden');
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) throw new Error('Sessão expirada. Entre novamente.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/testar-pix`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${data.session.access_token}`,
+            'apikey': SUPABASE_PUBLIC_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: '{}',
+          cache: 'no-store'
+        });
+        let body;
+        try { body = await response.json(); }
+        catch { throw new Error(`Resposta inesperada do servidor (${response.status}).`); }
+        if (!response.ok || body.sucesso !== true) {
+          throw new Error(body.erro || `Teste falhou (HTTP ${response.status}).`);
+        }
+        const dl = el('dl');
+        for (const [label, value] of [
+          ['HTTP', String(response.status)],
+          ['Valor', `${body.valor ?? '—'} ${body.moeda ?? ''}`],
+          ['Identificador', body.txid ?? '—'],
+          ['CRC16 válido', body.crc_valido === true ? 'Sim' : 'Não'],
+          ['Código gerado', typeof body.pix_copia_cola === 'string' && body.pix_copia_cola.length > 0 ? 'Sim' : 'Não']
+        ]) {
+          dl.append(el('dt','',label), el('dd','',value));
+        }
+        result.append(dl);
+        result.classList.remove('hidden');
+        const passou = response.status === 200 && body.valor === '150.00' && body.moeda === 'BRL' && body.txid === 'TESTE150' && body.crc_valido === true && typeof body.pix_copia_cola === 'string' && body.pix_copia_cola.length > 0;
+        showMessage($('pixTestMessage'), passou ? 'Teste técnico concluído. Ainda falta validar o código no aplicativo bancário, sem pagar.' : 'O teste respondeu, mas algum dado não corresponde ao esperado. Não ative os pagamentos.', !passou);
+      } catch (error) {
+        showMessage($('pixTestMessage'), error.message || 'Falha ao testar Pix.', true);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Gerar Pix de teste';
+      }
+    });
+
     $('refreshBtn').addEventListener('click',loadReservations);
     $('statusFilter').addEventListener('change',renderReservations);
 
