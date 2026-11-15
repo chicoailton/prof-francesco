@@ -61,6 +61,7 @@
     .pill.pendente { background:#fff3d9; color:#8b620a; }
     .pill.aguardando_pix { background:#eaf1ff; color:#2456a4; }
     .pill.confirmada { background:#e7f5ed; color:#1d7b48; }
+    .pill.excluida { background:#f0edf5; color:#655476; }
     .pill.cancelada { background:#fcecef; color:#a6384b; }
     .details { background:#f5f7fa; border-radius:10px; padding:13px 14px; margin:17px 0; display:grid; gap:9px; }
     .detail { display:flex; justify-content:space-between; gap:12px; font-size:13px; }
@@ -85,6 +86,10 @@
     .confirm-steps { margin:10px 0 14px; padding-left:22px; color:var(--text); }
     .confirm-steps li { margin-bottom:5px; }
     .confirm-note { background:#fff7e8; border:1px solid #f0ddb5; padding:12px 14px; border-radius:9px; color:#725319; font-size:13px; }
+    .history-list { display:grid; gap:12px; padding:18px 20px; }
+    .history-item { padding:14px; border:1px solid var(--border); border-radius:10px; background:#f8fafc; }
+    .history-item h3 { margin:0 0 6px; font-size:15px; }
+    .history-item p { margin:3px 0; font-size:13px; }
     .payment-list { display:grid; gap:12px; margin-top:16px; }
     .payment-item { border:1px solid var(--border); background:#f8fafc; border-radius:10px; padding:15px; }
     .payment-item h3 { font-size:16px; margin:0 0 3px; color:var(--navy); }
@@ -170,6 +175,10 @@
       <div id="dashboardMessage" class="message hidden" role="alert"></div>
       <div id="reservations" class="cards" aria-live="polite"></div>
       <div id="emptyState" class="panel empty hidden">Nenhuma reserva encontrada para este filtro.</div>
+      <section class="panel" style="margin-top:22px" aria-labelledby="historyTitle">
+        <div class="toolbar" style="margin-bottom:0"><div><h2 id="historyTitle">Histórico de reservas excluídas</h2><p class="muted" style="margin-bottom:0">Registros preservados para auditoria. A exibição depende dos dados fornecidos pelo servidor.</p></div><strong id="historyCount">0</strong></div>
+        <div id="historyList" class="history-list" aria-live="polite"></div>
+      </section>
       <p class="footer">Prof Francesco · Ações de pagamento desativadas durante a fase de testes.</p>
     </section>
   </main>
@@ -214,6 +223,7 @@
 
     const $ = (id) => document.getElementById(id);
     let reservas = [];
+    let exclusaoEmAndamento = false;
     let requestSequence = 0;
     let paymentModalReservaId = null;
     let paymentModalPreviousFocus = null;
@@ -295,7 +305,7 @@
       $('dashboard').classList.toggle('hidden', !logged);
       $('topActions').classList.toggle('hidden', !logged);
       $('userEmail').textContent = user?.email || '';
-      if (!logged) { closePaymentModal(); $('paymentList').replaceChildren(); reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
+      if (!logged) { closePaymentModal(); $('paymentList').replaceChildren(); $('historyList').replaceChildren(); reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
     }
     function formatDate(date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Não informada';
@@ -320,10 +330,66 @@
       row.append(el('span','',label), el('strong','',value));
       parent.append(row);
     }
+    function estaExcluida(reserva) { return Boolean(reserva.excluida_em); }
+
+    function renderHistory() {
+      const container = $('historyList');
+      const excluidas = reservas.filter(estaExcluida);
+      $('historyCount').textContent = String(excluidas.length);
+      const fragment = document.createDocumentFragment();
+      if (!excluidas.length) fragment.append(el('p', 'muted', 'Nenhuma reserva excluída retornada pelo servidor. Se houver exclusões anteriores, verifique a função listar-reservas.'));
+      for (const reserva of excluidas) {
+        const item = el('article', 'history-item');
+        item.append(el('h3', '', `${reserva.nome || 'Aluno sem nome'} — reserva #${reserva.id}`));
+        item.append(el('p', '', `E-mail: ${reserva.email || 'Não informado'}`));
+        const horario = Array.isArray(reserva.horarios) ? reserva.horarios[0] : reserva.horarios;
+        item.append(el('p', '', `Aula: ${formatDate(horario?.data)} às ${formatTime(horario?.hora)}`));
+        item.append(el('p', '', `Status anterior/registrado: ${statusLabel(reserva.status)}`));
+        if (reserva.excluida_em) {
+         const data = new Date(reserva.excluida_em);
+         item.append(el('p', '', `Excluída em: ${Number.isNaN(data.getTime()) ? reserva.excluida_em : data.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'}) + ' (Brasília)'}`));
+        }
+        if (reserva.motivo_exclusao) item.append(el('p', '', `Motivo: ${reserva.motivo_exclusao}`));
+        fragment.append(item);
+      }
+      container.replaceChildren(fragment);
+    }
+
+    async function excluirReserva(reservaId) {
+      if (exclusaoEmAndamento) return;
+      const reserva = reservas.find(r => Number(r.id) === Number(reservaId));
+      if (!reserva || estaExcluida(reserva)) return;
+      if (reserva.status === 'confirmada' || reserva.pagamento_confirmado_em) {
+        showMessage($('dashboardMessage'), 'Reserva com pagamento confirmado: exclusão bloqueada no painel. Verifique o reembolso e o procedimento administrativo.', true);
+        return;
+      }
+      if (!['pendente','aguardando_pix','cancelada'].includes(reserva.status)) return;
+      if (!window.confirm(`Excluir a reserva #${reserva.id} de ${reserva.nome || 'aluno sem nome'}?\n\nEla deverá ir para o histórico e o horário será liberado pelo servidor. Esta ação não estorna pagamentos.`)) return;
+      exclusaoEmAndamento = true;
+      hideMessage($('dashboardMessage'));
+      try {
+        const {data, error} = await supabase.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/excluir-reserva`, {
+         method:'POST',
+         headers:{Authorization:`Bearer ${data.session.access_token}`, apikey:SUPABASE_PUBLIC_KEY, 'Content-Type':'application/json'},
+         body:JSON.stringify({reserva_id:Number(reserva.id), motivo:'Exclusão solicitada no painel administrativo'}),
+         cache:'no-store'
+        });
+        let body;
+        try { body = await response.json(); } catch { throw new Error(`Resposta inválida do servidor (HTTP ${response.status}). Confira o banco antes de repetir.`); }
+        if (!response.ok || body.sucesso !== true) throw new Error(body.erro || `Exclusão não confirmada (HTTP ${response.status}).`);
+        await loadReservations();
+        showMessage($('dashboardMessage'), `Exclusão da reserva #${reserva.id} registrada pelo servidor. Confira o histórico e a disponibilidade do horário.`);
+      } catch (error) {
+        showMessage($('dashboardMessage'), (error.message || 'Não foi possível excluir a reserva.') + ' Verifique o estado da reserva antes de tentar novamente.', true);
+      } finally { exclusaoEmAndamento = false; }
+    }
+
     function renderPaymentList() {
       const container = $('paymentList');
       const fragment = document.createDocumentFragment();
-      const awaiting = reservas.filter(r => r.status === 'aguardando_pix');
+      const awaiting = reservas.filter(r => !estaExcluida(r) && r.status === 'aguardando_pix');
       if (!awaiting.length) {
         fragment.append(el('p','muted','Nenhuma reserva aguardando Pix entre as reservas carregadas.'));
       }
@@ -357,16 +423,18 @@
 
     function renderReservations() {
       const filter = $('statusFilter').value;
-      const selected = filter === 'todos' ? reservas : reservas.filter(r => r.status === filter);
-      $('countPending').textContent = reservas.filter(r => r.status === 'pendente').length;
-      $('countPix').textContent = reservas.filter(r => r.status === 'aguardando_pix').length;
-      $('countConfirmed').textContent = reservas.filter(r => r.status === 'confirmada').length;
-      $('countTotal').textContent = reservas.length;
-      const aguardandoPix = reservas.filter(r => r.status === 'aguardando_pix');
+      const ativas = reservas.filter(r => !estaExcluida(r));
+      const selected = filter === 'todos' ? ativas : ativas.filter(r => r.status === filter);
+      $('countPending').textContent = ativas.filter(r => r.status === 'pendente').length;
+      $('countPix').textContent = ativas.filter(r => r.status === 'aguardando_pix').length;
+      $('countConfirmed').textContent = ativas.filter(r => r.status === 'confirmada').length;
+      $('countTotal').textContent = ativas.length;
+      const aguardandoPix = ativas.filter(r => r.status === 'aguardando_pix');
       $('confirmSummary').textContent = `${aguardandoPix.length} reserva(s) aguardando Pix. Confirmação manual ainda desativada.`;
-      $('listCount').textContent = `${selected.length} de ${reservas.length} reservas carregadas (máximo 100)`;
+      $('listCount').textContent = `${selected.length} de ${ativas.length} reservas ativas carregadas (limite da consulta: 100)`;
       $('emptyState').classList.toggle('hidden', selected.length !== 0);
       renderPaymentList();
+      renderHistory();
       $('approveTest5Btn').disabled = true; // Teste #5 encerrado; bloqueio permanente nesta versão.
       $('approveTest5Hint').textContent = 'Teste de aprovação encerrado. Este botão permanece desativado.';
       const fragment = document.createDocumentFragment();
@@ -395,7 +463,13 @@
         } else if (reserva.status === 'aguardando_pix') {
           const confirm = el('button','btn','Conferir pagamento (prévia)'); confirm.type='button'; confirm.disabled=!reserva.pix_txid || !reserva.pix_enviado_em; confirm.title='Abre apenas uma conferência visual'; confirm.addEventListener('click', () => openPaymentModal(reserva.id)); actions.append(confirm);
         }
-        if (actions.childNodes.length) { card.append(actions,el('p','hint',reserva.status === 'aguardando_pix' ? 'Conferência visual disponível; confirmação real e envio de e-mail desativados.' : 'Ações desativadas nesta versão de testes.')); }
+        if (['pendente','aguardando_pix','cancelada'].includes(reserva.status) && !reserva.pagamento_confirmado_em) {
+         const excluir = el('button','btn btn-danger','Excluir reserva');
+         excluir.type = 'button';
+         excluir.addEventListener('click', () => excluirReserva(reserva.id));
+         actions.append(excluir);
+        }
+        if (actions.childNodes.length) { card.append(actions,el('p','hint',reserva.status === 'aguardando_pix' ? 'Conferência visual disponível; confirmação real e envio de e-mail desativados.' : 'Aprovação e recusa permanecem desativadas; exclusão exige confirmação.')); }
         fragment.append(card);
       }
       $('reservations').replaceChildren(fragment);
