@@ -173,7 +173,7 @@
           <li>Confira beneficiário, valor e dados da transação; não confie somente em comprovantes enviados por alunos.</li>
           <li>Após essa verificação, a confirmação poderá ser realizada pelo painel quando a função estiver habilitada e testada.</li>
         </ol>
-        <div class="confirm-note">Modo seguro ativo: nenhum botão confirma pagamentos ou envia e-mails. As reservas de teste #3 e #5 não devem ser confirmadas sem pagamento real.</div>
+        <div class="confirm-note">Modo seguro: a confirmação de pagamentos continua desativada. O botão de aprovação pode enviar cobrança Pix real por e-mail. Reservas de teste #3 e #5 permanecem protegidas.</div>
         <p class="hint" id="confirmSummary" aria-live="polite">Carregando reservas aguardando Pix...</p>
         <div id="paymentList" class="payment-list" aria-live="polite"></div>
       </section>
@@ -185,7 +185,7 @@
         <div class="toolbar" style="margin-bottom:0"><div><h2 id="historyTitle">Histórico de reservas excluídas</h2><p class="muted" style="margin-bottom:0">Registros preservados para auditoria. A exibição depende dos dados fornecidos pelo servidor.</p></div><strong id="historyCount">0</strong></div>
         <div id="historyList" class="history-list" aria-live="polite"></div>
       </section>
-      <p class="footer">Prof Francesco · Ações de pagamento desativadas durante a fase de testes.</p>
+      <p class="footer">Prof Francesco · Aprovação Pix disponível para reservas pendentes. Confirmação de pagamentos ainda desativada.</p>
     </section>
   </main>
 
@@ -231,6 +231,7 @@
     let reservas = [];
     let historico = [];
     let exclusaoEmAndamento = false;
+    let aprovacaoEmAndamento = false;
     let requestSequence = 0;
     let paymentModalReservaId = null;
     let paymentModalPreviousFocus = null;
@@ -362,6 +363,46 @@
       container.replaceChildren(fragment);
     }
 
+    async function aprovarReserva(reservaId) {
+      if (aprovacaoEmAndamento) return;
+      const reserva = reservas.find(r => Number(r.id) === Number(reservaId));
+      if (!reserva || estaExcluida(reserva) || reserva.status !== 'pendente' ||
+          reserva.pagamento_confirmado_em || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id))) return;
+      const horario = Array.isArray(reserva.horarios) ? reserva.horarios[0] : reserva.horarios;
+      const mensagem = `Enviar uma cobrança Pix de R$ 150,00 para ${reserva.nome || 'o aluno'} (${reserva.email || 'sem e-mail'})?\n\nReserva #${reserva.id} — ${formatDate(horario?.data)}, ${formatTime(horario?.hora)}.\n\nEsta ação pode gerar uma cobrança e enviar um e-mail real. Confirme apenas uma vez.`;
+      if (!window.confirm(mensagem)) return;
+      aprovacaoEmAndamento = true;
+      hideMessage($('dashboardMessage'));
+      renderReservations();
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/aprovar-reserva`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            apikey: SUPABASE_PUBLIC_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ reserva_id: Number(reserva.id) }),
+          cache: 'no-store'
+        });
+        let body;
+        try { body = await response.json(); }
+        catch { throw new Error(`Resposta inesperada (HTTP ${response.status}). Verifique a reserva e os logs antes de tentar novamente.`); }
+        if (!response.ok || body.sucesso !== true) {
+          throw new Error(body.erro || `O servidor não confirmou a aprovação (HTTP ${response.status}).`);
+        }
+        await loadReservations();
+        showMessage($('dashboardMessage'), `Solicitação de aprovação da reserva #${reserva.id} aceita pelo servidor. Confira o status da reserva e o e-mail no Resend antes de considerar a cobrança enviada.`);
+      } catch (error) {
+        showMessage($('dashboardMessage'), `${error.message || 'Não foi possível concluir a aprovação.'} Consulte o status da reserva e os logs do Resend antes de repetir: a cobrança pode ter sido processada.`, true);
+      } finally {
+        aprovacaoEmAndamento = false;
+        renderReservations();
+      }
+    }
+
     async function excluirReserva(reservaId) {
       if (exclusaoEmAndamento) return;
       const reserva = reservas.find(r => Number(r.id) === Number(reservaId));
@@ -464,7 +505,7 @@
         card.append(details);
         const actions = el('div','actions');
         if (reserva.status === 'pendente') {
-          const approve = el('button','btn','Aprovar e enviar Pix'); approve.type='button'; approve.disabled=true; approve.title='Disponível após os testes de segurança e pagamento';
+          const approve = el('button','btn','Aprovar e enviar Pix'); approve.type='button'; approve.disabled=aprovacaoEmAndamento || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)); approve.title='Envia uma cobrança real de R$ 150,00 após confirmação'; approve.addEventListener('click', () => aprovarReserva(reserva.id));
           const reject = el('button','btn btn-danger','Recusar'); reject.type='button'; reject.disabled=true; reject.title='Função ainda não implementada';
           actions.append(approve,reject);
         } else if (reserva.status === 'aguardando_pix') {
@@ -476,7 +517,7 @@
          excluir.addEventListener('click', () => excluirReserva(reserva.id));
          actions.append(excluir);
         }
-        if (actions.childNodes.length) { card.append(actions,el('p','hint',reserva.status === 'aguardando_pix' ? 'Conferência visual disponível; confirmação real e envio de e-mail desativados.' : 'Aprovação e recusa permanecem desativadas; exclusão exige confirmação.')); }
+        if (actions.childNodes.length) { card.append(actions,el('p','hint',reserva.status === 'aguardando_pix' ? 'Conferência visual disponível; confirmação real e envio de e-mail desativados.' : 'Aprovação envia cobrança Pix real após confirmação; recusa permanece desativada. Exclusão exige confirmação.')); }
         fragment.append(card);
       }
       $('reservations').replaceChildren(fragment);
