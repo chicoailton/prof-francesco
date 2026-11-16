@@ -161,19 +161,19 @@
       </section>
       <section class="panel pix-test" aria-labelledby="paymentConnectionTestTitle">
         <h2 id="paymentConnectionTestTitle">Teste de confirmação de pagamento</h2>
-        <p class="muted">Verifica a autenticação do administrador e o modo seguro da função confirmar-pagamento. Este teste não envia dados de reservas, não confirma pagamentos e não envia e-mails.</p>
+        <p class="muted">Verifica a autenticação do administrador e se a função confirmar-pagamento está habilitada. Este teste não envia dados de reservas, não confirma pagamentos e não envia e-mails.</p>
         <button class="btn" id="testPaymentSafeBtn" type="button">Testar confirmação (modo seguro)</button>
         <div id="testPaymentSafeMessage" class="message hidden" role="status" aria-live="polite"></div>
       </section>
       <section class="panel confirm-info" aria-labelledby="confirmInfoTitle">
         <h2 id="confirmInfoTitle">Confirmação manual de pagamentos</h2>
-        <p class="muted">Preparação da próxima etapa. O sistema não consulta seu banco e não sabe se um Pix foi pago.</p>
+        <p class="muted">O sistema não consulta seu banco. Confirme pagamentos somente após verificar o crédito efetivo no aplicativo bancário.</p>
         <ol class="confirm-steps">
           <li>Verifique no aplicativo do banco se o valor foi efetivamente creditado.</li>
           <li>Confira beneficiário, valor e dados da transação; não confie somente em comprovantes enviados por alunos.</li>
-          <li>Após essa verificação, a confirmação poderá ser realizada pelo painel quando a função estiver habilitada e testada.</li>
+          <li>Depois da conferência, abra a reserva, digite o identificador Pix e confirme para registrar o pagamento e solicitar o e-mail.</li>
         </ol>
-        <div class="confirm-note">Modo seguro: a confirmação de pagamentos continua desativada. O botão de aprovação pode enviar cobrança Pix real por e-mail. Reservas de teste #3 e #5 permanecem protegidas.</div>
+        <div class="confirm-note">A confirmação manual está habilitada para reservas elegíveis. Esta ação altera o status e pode enviar um e-mail real. As reservas de teste #3 e #5 permanecem bloqueadas.</div>
         <p class="hint" id="confirmSummary" aria-live="polite">Carregando reservas aguardando Pix...</p>
         <div id="paymentList" class="payment-list" aria-live="polite"></div>
       </section>
@@ -185,7 +185,7 @@
         <div class="toolbar" style="margin-bottom:0"><div><h2 id="historyTitle">Histórico de reservas excluídas</h2><p class="muted" style="margin-bottom:0">Registros preservados para auditoria. A exibição depende dos dados fornecidos pelo servidor.</p></div><strong id="historyCount">0</strong></div>
         <div id="historyList" class="history-list" aria-live="polite"></div>
       </section>
-      <p class="footer">Prof Francesco · Aprovação Pix disponível para reservas pendentes. Confirmação de pagamentos ainda desativada.</p>
+      <p class="footer">Prof Francesco · Aprovação Pix e confirmação manual disponíveis para reservas elegíveis, mediante conferência bancária.</p>
     </section>
   </main>
 
@@ -195,7 +195,7 @@
         <h2 id="paymentModalTitle">Conferir pagamento Pix</h2>
         <button class="modal-close" id="closePaymentModal" type="button" aria-label="Fechar janela">×</button>
       </div>
-      <p id="paymentModalDescription" class="muted">Prévia de conferência manual. Nenhum pagamento será confirmado nesta versão.</p>
+      <p id="paymentModalDescription" class="muted">Esta ação confirma o pagamento no sistema e solicita o envio de um e-mail real ao aluno. Verifique o crédito no banco antes de continuar.</p>
       <div class="details" id="paymentModalDetails"></div>
       <div class="field">
         <label for="paymentTxidInput">Digite o identificador Pix exibido acima</label>
@@ -206,11 +206,11 @@
         <span>Conferi no aplicativo do banco o crédito efetivo, o valor e o beneficiário. Não me baseei apenas em comprovante enviado pelo aluno.</span>
       </label>
       <div id="paymentModalFeedback" class="message hidden" role="status" aria-live="polite"></div>
-      <div class="confirm-note">Modo seguro: esta janela não confirma pagamentos nem envia e-mails. As reservas de teste #3 e #5 não devem ser confirmadas sem pagamento real.</div>
+      <div class="confirm-note">A confirmação registra o pagamento e pode enviar um e-mail real. Não confirme apenas com base em comprovantes. Reservas de teste #3 e #5 estão bloqueadas.</div>
       <div class="modal-actions">
         <button class="btn btn-light" id="cancelPaymentModal" type="button">Fechar</button>
         <button class="btn btn-light" id="testPaymentConnection" type="button">Testar conexão segura</button>
-        <button class="btn" id="submitPaymentModal" type="button" disabled>Confirmar e enviar e-mail — desativado</button>
+        <button class="btn" id="submitPaymentModal" type="button" disabled>Confirmar pagamento e enviar e-mail</button>
       </div>
     </section>
   </div>
@@ -224,7 +224,7 @@
     const SUPABASE_PUBLIC_KEY = 'sb_publishable_hBi4JsicphnM1MWugvAUZw_eRoa02O1';
     const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
 
-    // Confirmação controlada: somente reserva #7; servidor também restringe a #7.
+    // Confirmação manual de reservas elegíveis; a autorização definitiva é validada no servidor.
     const CONFIRMACAO_MANUAL_HABILITADA = true;
 
     const $ = (id) => document.getElementById(id);
@@ -258,7 +258,7 @@
       if (paymentModalReservaId === null || paymentConfirmationInProgress || paymentConfirmationAttempted) return;
       const reserva = reservas.find(r => Number(r.id) === paymentModalReservaId);
       if (!reserva || reserva.status !== 'aguardando_pix' || !reserva.pix_txid ||
-          !reserva.pix_enviado_em || reserva.pagamento_confirmado_em || Number(reserva.id) !== 7) {
+          !reserva.pix_enviado_em || reserva.pagamento_confirmado_em || estaExcluida(reserva)) {
         showMessage($('paymentModalFeedback'), 'Reserva não disponível. Feche a janela e atualize as reservas.', true);
         return;
       }
@@ -281,7 +281,7 @@
 
     function openPaymentModal(reservaId) {
       const reserva = reservas.find(r => Number(r.id) === Number(reservaId));
-      if (!reserva || reserva.status !== 'aguardando_pix' || !reserva.pix_txid || !reserva.pix_enviado_em || reserva.pagamento_confirmado_em) return;
+      if (!reserva || estaExcluida(reserva) || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) || reserva.status !== 'aguardando_pix' || !reserva.pix_txid || !reserva.pix_enviado_em || reserva.pagamento_confirmado_em) return;
       paymentModalReservaId = Number(reserva.id);
       paymentConfirmationAttempted = false;
       paymentModalPreviousFocus = document.activeElement;
@@ -453,16 +453,16 @@
         detail(details,'Identificador Pix',reserva.pix_txid || 'Não informado');
         detail(details,'Cobrança enviada',reserva.pix_enviado_em ? 'Registro existente' : 'Sem registro');
         item.append(details);
-        const btn = el('button','btn','Conferir pagamento (prévia)');
+        const btn = el('button','btn','Conferir e confirmar pagamento');
         btn.type = 'button';
-        btn.disabled = !reserva.pix_txid || !reserva.pix_enviado_em || !!reserva.pagamento_confirmado_em;
-        btn.title = 'Abrir conferência visual; nenhuma confirmação será executada';
+        btn.disabled = RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) || !reserva.pix_txid || !reserva.pix_enviado_em || !!reserva.pagamento_confirmado_em;
+        btn.title = 'Após conferir o crédito no banco, confirmar pagamento e solicitar e-mail';
         btn.addEventListener('click', () => openPaymentModal(reserva.id));
         item.append(btn);
         if (Number(reserva.id) === 3 || Number(reserva.id) === 5) {
-          item.append(el('p','hint','Reserva usada nos testes: não confirmar sem crédito real verificado no banco.'));
+          item.append(el('p','hint','Reserva de teste protegida: confirmação bloqueada neste painel.'));
         } else {
-          item.append(el('p','hint','A confirmação depende de conferência bancária e liberação futura do sistema.'));
+          item.append(el('p','hint','Confirme somente depois de verificar o crédito efetivo no banco.'));
         }
         fragment.append(item);
       }
@@ -478,7 +478,7 @@
       $('countConfirmed').textContent = ativas.filter(r => r.status === 'confirmada').length;
       $('countTotal').textContent = ativas.length;
       const aguardandoPix = ativas.filter(r => r.status === 'aguardando_pix');
-      $('confirmSummary').textContent = `${aguardandoPix.length} reserva(s) aguardando Pix. Confirmação manual ainda desativada.`;
+      $('confirmSummary').textContent = `${aguardandoPix.length} reserva(s) aguardando Pix. Confirmação manual disponível para reservas elegíveis após conferência bancária.`;
       $('listCount').textContent = `${selected.length} de ${ativas.length} reservas ativas carregadas (limite da consulta: 100)`;
       $('emptyState').classList.toggle('hidden', selected.length !== 0);
       renderPaymentList();
@@ -509,7 +509,7 @@
           const reject = el('button','btn btn-danger','Recusar'); reject.type='button'; reject.disabled=true; reject.title='Função ainda não implementada';
           actions.append(approve,reject);
         } else if (reserva.status === 'aguardando_pix') {
-          const confirm = el('button','btn','Conferir pagamento (prévia)'); confirm.type='button'; confirm.disabled=!reserva.pix_txid || !reserva.pix_enviado_em; confirm.title='Abre apenas uma conferência visual'; confirm.addEventListener('click', () => openPaymentModal(reserva.id)); actions.append(confirm);
+          const confirm = el('button','btn','Conferir e confirmar pagamento'); confirm.type='button'; confirm.disabled=RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) || !reserva.pix_txid || !reserva.pix_enviado_em; confirm.title='Confirmação real após conferência bancária'; confirm.addEventListener('click', () => openPaymentModal(reserva.id)); actions.append(confirm);
         }
         if (['pendente','aguardando_pix'].includes(reserva.status) && !reserva.pagamento_confirmado_em) {
          const excluir = el('button','btn btn-danger','Excluir reserva');
@@ -517,7 +517,7 @@
          excluir.addEventListener('click', () => excluirReserva(reserva.id));
          actions.append(excluir);
         }
-        if (actions.childNodes.length) { card.append(actions,el('p','hint',reserva.status === 'aguardando_pix' ? 'Conferência visual disponível; confirmação real e envio de e-mail desativados.' : 'Aprovação envia cobrança Pix real após confirmação; recusa permanece desativada. Exclusão exige confirmação.')); }
+        if (actions.childNodes.length) { card.append(actions,el('p','hint',reserva.status === 'aguardando_pix' ? 'Confirmação real disponível após verificar o crédito no banco; reservas de teste #3 e #5 bloqueadas.' : 'Aprovação envia cobrança Pix real após confirmação; recusa permanece desativada. Exclusão exige confirmação.')); }
         fragment.append(card);
       }
       $('reservations').replaceChildren(fragment);
@@ -669,10 +669,10 @@
         if (!response.ok) throw new Error(result.erro || `Teste falhou (HTTP ${response.status}).`);
         if (result.sucesso !== true || result.modo !== 'teste' ||
             result.administrador_autorizado !== true ||
-            result.confirmacao_real_habilitada !== false) {
+            result.confirmacao_real_habilitada !== true) {
           throw new Error('O servidor não confirmou todos os critérios do modo seguro. Não habilite pagamentos.');
         }
-        showMessage(feedback, 'Teste aprovado: administrador autorizado, confirmação real desativada. Nenhuma reserva foi alterada e nenhum e-mail foi enviado.');
+        showMessage(feedback, 'Teste aprovado: administrador autorizado e função de confirmação habilitada. Este teste não alterou reservas nem enviou e-mails.');
       } catch (error) {
         showMessage(feedback, error.message || 'Não foi possível validar a conexão segura.', true);
       } finally {
@@ -724,10 +724,10 @@
         try { result = await response.json(); }
         catch { throw new Error(`Resposta inválida do servidor (HTTP ${response.status}).`); }
         if (response.status !== 200 || result.sucesso !== true || result.modo !== 'teste' ||
-            result.administrador_autorizado !== true || result.confirmacao_real_habilitada !== false) {
+            result.administrador_autorizado !== true || result.confirmacao_real_habilitada !== true) {
           throw new Error('O servidor não confirmou o modo seguro. Não habilite pagamentos.');
         }
-        showMessage($('paymentModalFeedback'), 'Conexão segura validada. Administrador autorizado; confirmação real bloqueada. Nenhuma reserva alterada e nenhum e-mail enviado.');
+        showMessage($('paymentModalFeedback'), 'Conexão validada: administrador autorizado e confirmação real habilitada. Este teste não alterou reservas nem enviou e-mails.');
       } catch (error) {
         showMessage($('paymentModalFeedback'), error.message || 'Falha no teste de conexão.', true);
       } finally {
@@ -735,12 +735,12 @@
         button.textContent = 'Testar conexão segura';
       }
     });
-    // Fluxo habilitado somente para a reserva #7; servidor faz a validação definitiva.
+    // Fluxo manual para reservas elegíveis; o servidor faz a validação definitiva.
     async function confirmarPagamentoManual() {
       if (!CONFIRMACAO_MANUAL_HABILITADA || paymentConfirmationInProgress) return;
       const reserva = reservas.find(r => Number(r.id) === paymentModalReservaId);
       const txid = $('paymentTxidInput').value.trim();
-      if (!reserva || Number(reserva.id) !== 7 || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) ||
+      if (!reserva || estaExcluida(reserva) || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) ||
           reserva.status !== 'aguardando_pix' || reserva.pagamento_confirmado_em ||
           !reserva.pix_enviado_em || !reserva.pix_txid ||
           txid !== reserva.pix_txid || !$('paymentBankChecked').checked) {
@@ -795,7 +795,7 @@
     if (CONFIRMACAO_MANUAL_HABILITADA) {
       $('submitPaymentModal').addEventListener('click', confirmarPagamentoManual);
     }
-    // Enquanto a trava local for false, o botão permanece desativado e não há handler.
+    // O servidor também valida a autorização, o status, o identificador e o registro de pagamento.
 
     $('refreshBtn').addEventListener('click',loadReservations);
     $('statusFilter').addEventListener('change',renderReservations);
