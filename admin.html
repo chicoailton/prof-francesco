@@ -156,7 +156,7 @@
       <div id="reservations" class="cards" aria-live="polite"></div>
       <div id="emptyState" class="panel empty hidden">Nenhuma reserva encontrada para este filtro.</div>
       <section class="panel" style="margin-top:22px" aria-labelledby="historyTitle">
-        <div class="toolbar" style="margin-bottom:0"><div><h2 id="historyTitle">Histórico de reservas excluídas</h2><p class="muted" style="margin-bottom:0">Registros preservados para auditoria. A exibição depende dos dados fornecidos pelo servidor.</p></div><strong id="historyCount">0</strong></div>
+        <div class="toolbar" style="margin-bottom:0"><div><h2 id="historyTitle">Histórico de reservas canceladas/excluídas</h2><p class="muted" style="margin-bottom:0">Registros preservados para auditoria, inclusive pagamentos de reservas canceladas.</p></div><strong id="historyCount">0</strong></div>
         <div id="historyList" class="history-list" aria-live="polite"></div>
       </section>
       <p class="footer">Prof Francesco · Aprovação Pix e confirmação manual disponíveis para reservas elegíveis, mediante conferência bancária.</p>
@@ -331,6 +331,7 @@
          item.append(el('p', '', `Excluída em: ${Number.isNaN(data.getTime()) ? reserva.excluida_em : data.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'}) + ' (Brasília)'}`));
         }
         if (reserva.motivo_exclusao) item.append(el('p', '', `Motivo: ${reserva.motivo_exclusao}`));
+        if (reserva.pagamento_confirmado_em) item.append(el('p', '', `Pagamento registrado: ${formatMoney(reserva.valor_centavos)} — cancelamento não implica reembolso.`));
         fragment.append(item);
       }
       container.replaceChildren(fragment);
@@ -377,34 +378,64 @@
     }
 
     async function excluirReserva(reservaId) {
-      if (exclusaoEmAndamento) return;
+      if (exclusaoEmAndamento || paymentConfirmationInProgress || aprovacaoEmAndamento) return;
       const reserva = reservas.find(r => Number(r.id) === Number(reservaId));
-      if (!reserva || estaExcluida(reserva)) return;
-      if (reserva.status === 'confirmada' || reserva.pagamento_confirmado_em) {
-        showMessage($('dashboardMessage'), 'Reserva com pagamento confirmado: exclusão bloqueada no painel. Verifique o reembolso e o procedimento administrativo.', true);
+      if (!reserva || estaExcluida(reserva) ||
+          !['pendente', 'aguardando_pix', 'confirmada'].includes(reserva.status)) return;
+
+      const horario = Array.isArray(reserva.horarios) ? reserva.horarios[0] : reserva.horarios;
+      const pagamentoRegistrado = reserva.status === 'confirmada' || Boolean(reserva.pagamento_confirmado_em);
+      const avisoFinanceiro = pagamentoRegistrado
+        ? '\\n\\nATENÇÃO: existe pagamento confirmado. O cancelamento NÃO faz reembolso, NÃO apaga o pagamento e NÃO avisa o aluno automaticamente.'
+        : '\\n\\nA exclusão não realiza estorno e não avisa o aluno automaticamente.';
+      const mensagem = `Cancelar a reserva #${reserva.id} de ${reserva.nome || 'aluno sem nome'}?\\n\\nAula: ${formatDate(horario?.data)}, ${formatTime(horario?.hora)}.\\n\\nO horário será liberado para novas reservas e esta reserva ficará no histórico.${avisoFinanceiro}`;
+      if (!window.confirm(mensagem)) return;
+
+      // Segunda confirmação deliberada para evitar cancelamentos acidentais.
+      const frase = `CANCELAR ${reserva.id}`;
+      const digitado = window.prompt(`Para cancelar definitivamente a reserva #${reserva.id} e liberar o horário, digite exatamente: ${frase}`);
+      if (digitado !== frase) {
+        if (digitado !== null) showMessage($('dashboardMessage'), 'Cancelamento interrompido: confirmação digitada incorretamente.', true);
         return;
       }
-      if (!['pendente','aguardando_pix'].includes(reserva.status)) return;
-      if (!window.confirm(`Excluir a reserva #${reserva.id} de ${reserva.nome || 'aluno sem nome'}?\n\nEla deverá ir para o histórico e o horário será liberado pelo servidor. Esta ação não estorna pagamentos.`)) return;
+
+      const motivo = pagamentoRegistrado
+        ? 'Cancelamento administrativo de reserva confirmada; pagamento preservado, reembolso não automático'
+        : 'Cancelamento administrativo com liberação de horário';
+
       exclusaoEmAndamento = true;
       hideMessage($('dashboardMessage'));
+      renderReservations();
       try {
-        const {data, error} = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
         if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
         const response = await fetch(`${SUPABASE_URL}/functions/v1/excluir-reserva`, {
-         method:'POST',
-         headers:{Authorization:`Bearer ${data.session.access_token}`, apikey:SUPABASE_PUBLIC_KEY, 'Content-Type':'application/json'},
-         body:JSON.stringify({reserva_id:Number(reserva.id), motivo:'Exclusão solicitada no painel administrativo'}),
-         cache:'no-store'
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            apikey: SUPABASE_PUBLIC_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ reserva_id: Number(reserva.id), motivo }),
+          cache: 'no-store'
         });
         let body;
-        try { body = await response.json(); } catch { throw new Error(`Resposta inválida do servidor (HTTP ${response.status}). Confira o banco antes de repetir.`); }
-        if (!response.ok || body.sucesso !== true) throw new Error(body.erro || `Exclusão não confirmada (HTTP ${response.status}).`);
+        try { body = await response.json(); }
+        catch { throw new Error(`Resposta inválida do servidor (HTTP ${response.status}). Confira o banco antes de repetir.`); }
+        if (!response.ok || body.sucesso !== true) {
+          throw new Error(body.erro || `Cancelamento não confirmado (HTTP ${response.status}).`);
+        }
         await loadReservations();
-        showMessage($('dashboardMessage'), `Exclusão da reserva #${reserva.id} registrada pelo servidor. Confira o histórico e a disponibilidade do horário.`);
+        showMessage($('dashboardMessage'),
+          `Reserva #${reserva.id} cancelada e registrada no histórico. Confira a liberação do horário no calendário. O sistema não fez reembolso nem enviou aviso ao aluno.`);
       } catch (error) {
-        showMessage($('dashboardMessage'), (error.message || 'Não foi possível excluir a reserva.') + ' Verifique o estado da reserva antes de tentar novamente.', true);
-      } finally { exclusaoEmAndamento = false; }
+        showMessage($('dashboardMessage'),
+          (error.message || 'Não foi possível cancelar a reserva.') +
+          ' Verifique o estado da reserva antes de tentar novamente.', true);
+      } finally {
+        exclusaoEmAndamento = false;
+        renderReservations();
+      }
     }
 
     function renderPaymentList() {
@@ -482,13 +513,24 @@
         } else if (reserva.status === 'aguardando_pix') {
           const confirm = el('button','btn','Conferir e confirmar pagamento'); confirm.type='button'; confirm.disabled=RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) || !reserva.pix_txid || !reserva.pix_enviado_em; confirm.title='Confirmação real após conferência bancária'; confirm.addEventListener('click', () => openPaymentModal(reserva.id)); actions.append(confirm);
         }
-        if (['pendente','aguardando_pix'].includes(reserva.status) && !reserva.pagamento_confirmado_em) {
-         const excluir = el('button','btn btn-danger','Excluir reserva');
-         excluir.type = 'button';
-         excluir.addEventListener('click', () => excluirReserva(reserva.id));
-         actions.append(excluir);
+        if (['pendente', 'aguardando_pix', 'confirmada'].includes(reserva.status)) {
+          const excluir = el('button', 'btn btn-danger',
+            reserva.status === 'confirmada' ? 'Cancelar reserva e liberar horário' : 'Excluir reserva');
+          excluir.type = 'button';
+          excluir.disabled = exclusaoEmAndamento || paymentConfirmationInProgress || aprovacaoEmAndamento;
+          excluir.title = 'Cancela a reserva, preserva o histórico e libera o horário. Não reembolsa nem notifica o aluno.';
+          excluir.addEventListener('click', () => excluirReserva(reserva.id));
+          actions.append(excluir);
         }
-        if (actions.childNodes.length) { card.append(actions,el('p','hint',reserva.status === 'aguardando_pix' ? 'Confirmação real disponível após verificar o crédito no banco; reservas de teste #3 e #5 bloqueadas.' : 'Aprovação envia cobrança Pix real após confirmação; recusa permanece desativada. Exclusão exige confirmação.')); }
+        if (actions.childNodes.length) {
+          card.append(actions);
+          const hint = reserva.status === 'confirmada'
+            ? 'Cancelamento exige duas confirmações. Pagamento preservado; nenhum reembolso ou e-mail automático.'
+            : reserva.status === 'aguardando_pix'
+              ? 'Confirme o crédito no banco antes de registrar pagamento. Cancelamento exige confirmação.'
+              : 'Aprovação pode enviar cobrança Pix real. Cancelamento exige confirmação.';
+          card.append(el('p', 'hint', hint));
+        }
         fragment.append(card);
       }
       $('reservations').replaceChildren(fragment);
