@@ -139,32 +139,6 @@
         <div class="panel stat"><strong id="countConfirmed">0</strong><span>Confirmadas</span></div>
         <div class="panel stat"><strong id="countTotal">0</strong><span>Total carregado</span></div>
       </div>
-      <section class="panel pix-test" aria-labelledby="pixTestTitle">
-        <h2 id="pixTestTitle">Teste de Pix</h2>
-        <p class="muted">Valide a geração do código Pix de R$ 150,00 sem alterar reservas ou enviar e-mails. O código Copia e Cola não será exibido em texto; o QR Code de teste conterá a chave Pix real.</p>
-        <button class="btn" id="testPixBtn" type="button">Gerar Pix de teste</button>
-        <div id="pixTestMessage" class="message hidden" role="status" aria-live="polite"></div>
-        <div id="pixTestResult" class="pix-result hidden" aria-live="polite"></div>
-        <div id="pixQrPanel" class="pix-qr hidden">
-          <h3>QR Code Pix de teste</h3>
-          <canvas id="pixQrCanvas" width="280" height="280" aria-label="QR Code Pix para validação no aplicativo bancário"></canvas>
-          <p class="hint"><strong>Contém sua chave Pix verdadeira.</strong> Não publique nem compartilhe uma captura do QR Code. No aplicativo do banco, confira beneficiário e R$ 150,00, mas <strong>não conclua o pagamento</strong>.</p>
-          <button class="btn btn-light" id="hidePixQrBtn" type="button">Ocultar QR Code</button>
-        </div>
-      </section>
-      <section class="panel pix-test" aria-labelledby="approvalTestTitle">
-        <h2 id="approvalTestTitle">Teste controlado de aprovação — Reserva #5</h2>
-        <p class="muted">Teste anterior concluído. A reserva #5 já foi processada e o envio experimental de cobrança não pode ser repetido por este painel.</p>
-        <button class="btn" id="approveTest5Btn" type="button" disabled>Teste de aprovação encerrado — #5</button>
-        <p class="hint" id="approveTest5Hint">Aguardando conferência da reserva...</p>
-        <div id="approveTest5Message" class="message hidden" role="status" aria-live="polite"></div>
-      </section>
-      <section class="panel pix-test" aria-labelledby="paymentConnectionTestTitle">
-        <h2 id="paymentConnectionTestTitle">Teste de confirmação de pagamento</h2>
-        <p class="muted">Verifica a autenticação do administrador e se a função confirmar-pagamento está habilitada. Este teste não envia dados de reservas, não confirma pagamentos e não envia e-mails.</p>
-        <button class="btn" id="testPaymentSafeBtn" type="button">Testar confirmação (modo seguro)</button>
-        <div id="testPaymentSafeMessage" class="message hidden" role="status" aria-live="polite"></div>
-      </section>
       <section class="panel confirm-info" aria-labelledby="confirmInfoTitle">
         <h2 id="confirmInfoTitle">Confirmação manual de pagamentos</h2>
         <p class="muted">O sistema não consulta seu banco. Confirme pagamentos somente após verificar o crédito efetivo no aplicativo bancário.</p>
@@ -209,7 +183,6 @@
       <div class="confirm-note">A confirmação registra o pagamento e pode enviar um e-mail real. Não confirme apenas com base em comprovantes. Reservas de teste #3 e #5 estão bloqueadas.</div>
       <div class="modal-actions">
         <button class="btn btn-light" id="cancelPaymentModal" type="button">Fechar</button>
-        <button class="btn btn-light" id="testPaymentConnection" type="button">Testar conexão segura</button>
         <button class="btn" id="submitPaymentModal" type="button" disabled>Confirmar pagamento e enviar e-mail</button>
       </div>
     </section>
@@ -313,7 +286,7 @@
       $('dashboard').classList.toggle('hidden', !logged);
       $('topActions').classList.toggle('hidden', !logged);
       $('userEmail').textContent = user?.email || '';
-      if (!logged) { closePaymentModal(); $('paymentList').replaceChildren(); $('historyList').replaceChildren(); historico = []; reservas = []; $('reservations').replaceChildren(); hideMessage($('pixTestMessage')); $('pixTestResult').replaceChildren(); $('pixTestResult').classList.add('hidden'); $('pixQrPanel').classList.add('hidden'); }
+      if (!logged) { closePaymentModal(); $('paymentList').replaceChildren(); $('historyList').replaceChildren(); historico = []; reservas = []; $('reservations').replaceChildren(); }
     }
     function formatDate(date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return 'Não informada';
@@ -483,8 +456,6 @@
       $('emptyState').classList.toggle('hidden', selected.length !== 0);
       renderPaymentList();
       renderHistory();
-      $('approveTest5Btn').disabled = true; // Teste #5 encerrado; bloqueio permanente nesta versão.
-      $('approveTest5Hint').textContent = 'Teste de aprovação encerrado. Este botão permanece desativado.';
       const fragment = document.createDocumentFragment();
       for (const reserva of selected) {
         const card = el('article','panel reservation');
@@ -576,113 +547,6 @@
       hideMessage($('dashboardMessage'));
       hideMessage($('loginMessage'));
     });
-    $('hidePixQrBtn').addEventListener('click', () => {
-      $('pixQrPanel').classList.add('hidden');
-      const canvas = $('pixQrCanvas');
-      canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
-    });
-
-    $('testPixBtn').addEventListener('click', async () => {
-      const button = $('testPixBtn');
-      const result = $('pixTestResult');
-      button.disabled = true;
-      button.textContent = 'Testando...';
-      hideMessage($('pixTestMessage'));
-      result.replaceChildren();
-      result.classList.add('hidden');
-      $('pixQrPanel').classList.add('hidden');
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error || !data.session) throw new Error('Sessão expirada. Entre novamente.');
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/testar-pix`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${data.session.access_token}`,
-            'apikey': SUPABASE_PUBLIC_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: '{}',
-          cache: 'no-store'
-        });
-        let body;
-        try { body = await response.json(); }
-        catch { throw new Error(`Resposta inesperada do servidor (${response.status}).`); }
-        if (!response.ok || body.sucesso !== true) {
-          throw new Error(body.erro || `Teste falhou (HTTP ${response.status}).`);
-        }
-        const dl = el('dl');
-        for (const [label, value] of [
-          ['HTTP', String(response.status)],
-          ['Valor', `${body.valor ?? '—'} ${body.moeda ?? ''}`],
-          ['Identificador', body.txid ?? '—'],
-          ['CRC16 válido', body.crc_valido === true ? 'Sim' : 'Não'],
-          ['Código gerado', typeof body.pix_copia_cola === 'string' && body.pix_copia_cola.length > 0 ? 'Sim' : 'Não']
-        ]) {
-          dl.append(el('dt','',label), el('dd','',value));
-        }
-        result.append(dl);
-        result.classList.remove('hidden');
-        const passou = response.status === 200 && body.valor === '150.00' && body.moeda === 'BRL' && body.txid === 'TESTE150' && body.crc_valido === true && typeof body.pix_copia_cola === 'string' && body.pix_copia_cola.length > 0;
-        if (!passou) {
-          showMessage($('pixTestMessage'), 'O teste respondeu, mas algum dado não corresponde ao esperado. Não ative os pagamentos.', true);
-          return;
-        }
-        // A biblioteca é carregada de um CDN, mas o payload Pix é processado
-        // localmente no navegador. Não usamos serviços externos de geração de QR.
-        const { default: QRCode } = await import('https://esm.sh/qrcode@1.5.4');
-        await QRCode.toCanvas($('pixQrCanvas'), body.pix_copia_cola, {
-          width: 280, margin: 3, errorCorrectionLevel: 'M',
-          color: { dark: '#142c50', light: '#ffffff' }
-        });
-        $('pixQrPanel').classList.remove('hidden');
-        showMessage($('pixTestMessage'), 'Teste técnico concluído. Escaneie o QR Code com seu banco, confira os dados e não pague. Não compartilhe capturas do QR Code.');
-      } catch (error) {
-        showMessage($('pixTestMessage'), error.message || 'Falha ao testar Pix.', true);
-      } finally {
-        button.disabled = false;
-        button.textContent = 'Gerar Pix de teste';
-      }
-    });
-
-    $('testPaymentSafeBtn').addEventListener('click', async () => {
-      const button = $('testPaymentSafeBtn');
-      const feedback = $('testPaymentSafeMessage');
-      button.disabled = true;
-      button.textContent = 'Testando...';
-      hideMessage(feedback);
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/confirmar-pagamento`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${data.session.access_token}`,
-            apikey: SUPABASE_PUBLIC_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ teste: true }),
-          cache: 'no-store'
-        });
-        let result;
-        try { result = await response.json(); }
-        catch { throw new Error(`Resposta inválida do servidor (HTTP ${response.status}).`); }
-        if (!response.ok) throw new Error(result.erro || `Teste falhou (HTTP ${response.status}).`);
-        if (result.sucesso !== true || result.modo !== 'teste' ||
-            result.administrador_autorizado !== true ||
-            result.confirmacao_real_habilitada !== true) {
-          throw new Error('O servidor não confirmou todos os critérios do modo seguro. Não habilite pagamentos.');
-        }
-        showMessage(feedback, 'Teste aprovado: administrador autorizado e função de confirmação habilitada. Este teste não alterou reservas nem enviou e-mails.');
-      } catch (error) {
-        showMessage(feedback, error.message || 'Não foi possível validar a conexão segura.', true);
-      } finally {
-        button.disabled = false;
-        button.textContent = 'Testar confirmação (modo seguro)';
-      }
-    });
-
-    // A aprovação experimental #5 foi encerrada. Nenhum handler de envio é registrado.
-
     $('closePaymentModal').addEventListener('click', closePaymentModal);
     $('cancelPaymentModal').addEventListener('click', closePaymentModal);
     $('paymentModal').addEventListener('click', (event) => {
@@ -701,40 +565,6 @@
     });
     $('paymentTxidInput').addEventListener('input', updatePaymentModalFeedback);
     $('paymentBankChecked').addEventListener('change', updatePaymentModalFeedback);
-    // Teste administrativo seguro: envia apenas {teste:true}, sem ID, TXID ou declaração bancária.
-    $('testPaymentConnection').addEventListener('click', async () => {
-      const button = $('testPaymentConnection');
-      button.disabled = true;
-      button.textContent = 'Testando...';
-      hideMessage($('paymentModalFeedback'));
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/confirmar-pagamento`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${data.session.access_token}`,
-            'apikey': SUPABASE_PUBLIC_KEY,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ teste: true }),
-          cache: 'no-store'
-        });
-        let result;
-        try { result = await response.json(); }
-        catch { throw new Error(`Resposta inválida do servidor (HTTP ${response.status}).`); }
-        if (response.status !== 200 || result.sucesso !== true || result.modo !== 'teste' ||
-            result.administrador_autorizado !== true || result.confirmacao_real_habilitada !== true) {
-          throw new Error('O servidor não confirmou o modo seguro. Não habilite pagamentos.');
-        }
-        showMessage($('paymentModalFeedback'), 'Conexão validada: administrador autorizado e confirmação real habilitada. Este teste não alterou reservas nem enviou e-mails.');
-      } catch (error) {
-        showMessage($('paymentModalFeedback'), error.message || 'Falha no teste de conexão.', true);
-      } finally {
-        button.disabled = false;
-        button.textContent = 'Testar conexão segura';
-      }
-    });
     // Fluxo manual para reservas elegíveis; o servidor faz a validação definitiva.
     async function confirmarPagamentoManual() {
       if (!CONFIRMACAO_MANUAL_HABILITADA || paymentConfirmationInProgress) return;
