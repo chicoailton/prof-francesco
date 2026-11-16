@@ -224,8 +224,8 @@
     const SUPABASE_PUBLIC_KEY = 'sb_publishable_hBi4JsicphnM1MWugvAUZw_eRoa02O1';
     const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY);
 
-    // Duas travas independentes: interface e Edge Function. Não habilitar nesta fase.
-    const CONFIRMACAO_MANUAL_HABILITADA = false;
+    // Confirmação controlada: somente reserva #7; servidor também restringe a #7.
+    const CONFIRMACAO_MANUAL_HABILITADA = true;
 
     const $ = (id) => document.getElementById(id);
     let reservas = [];
@@ -258,7 +258,7 @@
       if (paymentModalReservaId === null || paymentConfirmationInProgress || paymentConfirmationAttempted) return;
       const reserva = reservas.find(r => Number(r.id) === paymentModalReservaId);
       if (!reserva || reserva.status !== 'aguardando_pix' || !reserva.pix_txid ||
-          !reserva.pix_enviado_em || reserva.pagamento_confirmado_em) {
+          !reserva.pix_enviado_em || reserva.pagamento_confirmado_em || Number(reserva.id) !== 7) {
         showMessage($('paymentModalFeedback'), 'Reserva não disponível. Feche a janela e atualize as reservas.', true);
         return;
       }
@@ -735,13 +735,12 @@
         button.textContent = 'Testar conexão segura';
       }
     });
-    // Fluxo preparado, mas INACESSÍVEL enquanto a trava local for false.
-    // O servidor também mantém CONFIRMACAO_REAL_HABILITADA = false.
+    // Fluxo habilitado somente para a reserva #7; servidor faz a validação definitiva.
     async function confirmarPagamentoManual() {
       if (!CONFIRMACAO_MANUAL_HABILITADA || paymentConfirmationInProgress) return;
       const reserva = reservas.find(r => Number(r.id) === paymentModalReservaId);
       const txid = $('paymentTxidInput').value.trim();
-      if (!reserva || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) ||
+      if (!reserva || Number(reserva.id) !== 7 || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)) ||
           reserva.status !== 'aguardando_pix' || reserva.pagamento_confirmado_em ||
           !reserva.pix_enviado_em || !reserva.pix_txid ||
           txid !== reserva.pix_txid || !$('paymentBankChecked').checked) {
