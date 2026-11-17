@@ -665,6 +665,29 @@ footer strong {
   :root { --benefits-half-height: 63px; }
 }
 
+
+/* Consentimento para medição de visitas (Google Tag Manager). */
+.cookie-banner {
+  position: fixed; bottom: 18px; left: 18px; right: 18px;
+  max-width: 720px; margin: 0 auto; z-index: 9999;
+  padding: 20px 22px; border-radius: 18px;
+  background: #fffdf7; color: #142b44;
+  border: 1px solid #d5c9b7; box-shadow: 0 12px 35px #08264a40;
+  display: none; gap: 16px; align-items: center; justify-content: space-between;
+}
+.cookie-banner.visible { display: flex; }
+.cookie-banner p { margin: 6px 0 0; font-size: 13px; line-height: 1.5; }
+.cookie-actions { display: flex; gap: 9px; flex-wrap: wrap; flex-shrink: 0; }
+.cookie-actions button, .cookie-settings {
+  border-radius: 24px; padding: 10px 15px; font-weight: 700;
+}
+.cookie-actions .accept { border: 1px solid #08264a; background: #08264a; color: #fff; }
+.cookie-actions .reject { border: 1px solid #08264a; background: #fff; color: #08264a; }
+.cookie-settings { border: 0; background: transparent; color: #fff; text-decoration: underline; }
+@media (max-width: 650px) {
+  .cookie-banner { flex-direction: column; align-items: stretch; bottom: 10px; left: 10px; right: 10px; }
+  .cookie-actions { justify-content: flex-end; }
+}
 </style>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
@@ -977,7 +1000,7 @@ footer strong {
     ©
     <span id="year">
 </span>
-    Prof Francesco · Aulas online
+    Prof Francesco · Aulas online · <button type="button" class="cookie-settings" id="cookie-settings">Preferências de cookies</button>
    </small>
 </footer>
 <script>
@@ -1135,6 +1158,52 @@ document.getElementById('booking-form').onsubmit = async e => {
 };
 document.getElementById('year').textContent=new Date().getFullYear();
 loadMonth();
+</script>
+
+<!-- A medição de visitas só é ativada após consentimento. -->
+<div class="cookie-banner" id="cookie-banner" role="region" aria-label="Preferências de cookies">
+  <div>
+    <strong>Cookies de análise</strong>
+    <p>Usamos o Google Analytics para entender quantas pessoas visitam o site e quais páginas acessam. Você pode aceitar ou recusar; o agendamento funciona normalmente em ambos os casos. Sua escolha fica salva neste navegador.</p>
+  </div>
+  <div class="cookie-actions">
+    <button type="button" class="reject" id="cookie-reject">Recusar</button>
+    <button type="button" class="accept" id="cookie-accept">Aceitar</button>
+  </div>
+</div>
+<script>
+(function () {
+  'use strict';
+  const STORAGE_KEY = 'prof_francesco_analytics_consent_v1';
+  const banner = document.getElementById('cookie-banner');
+  let analyticsLoaded = false;
+
+  function loadAnalytics() {
+    if (analyticsLoaded) return;
+    analyticsLoaded = true;
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'https://www.googletagmanager.com/gtm.js?id=GTM-5VJVQBCQ';
+    document.head.appendChild(script);
+  }
+
+  function saveChoice(value) {
+    try { localStorage.setItem(STORAGE_KEY, value); } catch (_) { /* armazenamento indisponível */ }
+    banner.classList.remove('visible');
+    if (value === 'accepted') loadAnalytics();
+  }
+
+  let choice = null;
+  try { choice = localStorage.getItem(STORAGE_KEY); } catch (_) { /* armazenamento indisponível */ }
+  if (choice === 'accepted') loadAnalytics();
+  else if (choice !== 'rejected') banner.classList.add('visible');
+
+  document.getElementById('cookie-accept').addEventListener('click', () => saveChoice('accepted'));
+  document.getElementById('cookie-reject').addEventListener('click', () => saveChoice('rejected'));
+  document.getElementById('cookie-settings').addEventListener('click', () => banner.classList.add('visible'));
+})();
 </script>
 </body>
 </html>
