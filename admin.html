@@ -141,8 +141,8 @@
       </div>
       <section class="panel confirm-info" aria-labelledby="googleCalendarTitle">
         <h2 id="googleCalendarTitle">Google Calendar</h2>
-        <p class="muted">Teste de autorização administrativa. Não cria reuniões nem altera reservas.</p>
-        <button class="btn btn-light" id="testGoogleCalendarBtn" type="button">Testar conexão Google Calendar</button>
+        <p class="muted">Conecte a conta Google para preparar a criação de links exclusivos do Meet. Esta ação não cria reuniões nem altera reservas.</p>
+        <button class="btn btn-light" id="testGoogleCalendarBtn" type="button">Conectar Google Calendar</button>
         <div id="googleCalendarMessage" class="message hidden" role="status" aria-live="polite"></div>
       </section>
       <section class="panel confirm-info" aria-labelledby="confirmInfoTitle">
@@ -689,21 +689,33 @@
             apikey: SUPABASE_PUBLIC_KEY,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ teste: true }),
+          body: JSON.stringify({}),
           cache: 'no-store'
         });
         const result = await response.json();
-        if (!response.ok || result.sucesso !== true || result.administrador_autorizado !== true) {
-          throw new Error(result.erro || `Falha na autorização (HTTP ${response.status}).`);
+        if (!response.ok || result.sucesso !== true || result.administrador_autorizado !== true || result.oauth_habilitado !== true) {
+          throw new Error(result.erro || `Falha ao iniciar conexão Google (HTTP ${response.status}).`);
         }
-        showMessage($('googleCalendarMessage'),
-          'Administrador autorizado. A conexão OAuth com o Google ainda não está habilitada; nenhuma reunião foi criada.');
+        const authorizationUrl = new URL(result.authorization_url);
+        if (authorizationUrl.protocol !== 'https:' || authorizationUrl.hostname !== 'accounts.google.com' || authorizationUrl.pathname !== '/o/oauth2/v2/auth') {
+          throw new Error('Endereço de autorização Google inesperado.');
+        }
+        showMessage($('googleCalendarMessage'), 'Redirecionando para autorização Google. Selecione chicoailton@gmail.com.');
+        window.location.assign(authorizationUrl.toString());
       } catch (error) {
-        showMessage($('googleCalendarMessage'), error.message || 'Não foi possível testar a autorização.', true);
-      } finally {
+        showMessage($('googleCalendarMessage'), error.message || 'Não foi possível iniciar a conexão Google.', true);
         button.disabled = false;
       }
     });
+
+    // Exibir resultado de retorno OAuth sem interpretar a URL como prova de conexão.
+    const googleCalendarStatus = new URLSearchParams(window.location.search).get('google_calendar');
+    if (googleCalendarStatus === 'conectado') {
+      showMessage($('googleCalendarMessage'), 'O Google retornou ao painel após salvar a conexão. Confirme o registro no Supabase antes de utilizar a integração.');
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('google_calendar');
+      window.history.replaceState(null, '', cleanUrl.toString());
+    }
 
     $('refreshBtn').addEventListener('click',loadReservations);
     $('statusFilter').addEventListener('change',renderReservations);
