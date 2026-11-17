@@ -139,6 +139,12 @@
         <div class="panel stat"><strong id="countConfirmed">0</strong><span>Confirmadas</span></div>
         <div class="panel stat"><strong id="countTotal">0</strong><span>Total carregado</span></div>
       </div>
+      <section class="panel confirm-info" aria-labelledby="googleCalendarTitle">
+        <h2 id="googleCalendarTitle">Google Calendar</h2>
+        <p class="muted">Teste de autorização administrativa. Não cria reuniões nem altera reservas.</p>
+        <button class="btn btn-light" id="testGoogleCalendarBtn" type="button">Testar conexão Google Calendar</button>
+        <div id="googleCalendarMessage" class="message hidden" role="status" aria-live="polite"></div>
+      </section>
       <section class="panel confirm-info" aria-labelledby="confirmInfoTitle">
         <h2 id="confirmInfoTitle">Confirmação manual de pagamentos</h2>
         <p class="muted">O sistema não consulta seu banco. Confirme pagamentos somente após verificar o crédito efetivo no aplicativo bancário.</p>
@@ -668,6 +674,36 @@
       $('submitPaymentModal').addEventListener('click', confirmarPagamentoManual);
     }
     // O servidor também valida a autorização, o status, o identificador e o registro de pagamento.
+
+    $('testGoogleCalendarBtn').addEventListener('click', async () => {
+      const button = $('testGoogleCalendarBtn');
+      button.disabled = true;
+      hideMessage($('googleCalendarMessage'));
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Sessão expirada. Entre novamente.');
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/google-calendar?action=authorize`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            apikey: SUPABASE_PUBLIC_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ teste: true }),
+          cache: 'no-store'
+        });
+        const result = await response.json();
+        if (!response.ok || result.sucesso !== true || result.administrador_autorizado !== true) {
+          throw new Error(result.erro || `Falha na autorização (HTTP ${response.status}).`);
+        }
+        showMessage($('googleCalendarMessage'),
+          'Administrador autorizado. A conexão OAuth com o Google ainda não está habilitada; nenhuma reunião foi criada.');
+      } catch (error) {
+        showMessage($('googleCalendarMessage'), error.message || 'Não foi possível testar a autorização.', true);
+      } finally {
+        button.disabled = false;
+      }
+    });
 
     $('refreshBtn').addEventListener('click',loadReservations);
     $('statusFilter').addEventListener('change',renderReservations);
