@@ -68,7 +68,8 @@
     .detail span { color:var(--muted); }
     .detail strong { text-align:right; overflow-wrap:anywhere; }
     .actions { display:flex; gap:8px; flex-wrap:wrap; }
-    .actions button { flex:1 1 155px; font-size:13px; }
+    .actions button, .actions a.btn { flex:1 1 155px; font-size:13px; }
+    .actions a.btn { display:inline-flex; align-items:center; justify-content:center; text-align:center; text-decoration:none; }
     .hint { font-size:12px; color:var(--muted); margin:11px 0 0; }
     .empty { padding:42px 20px; text-align:center; color:var(--muted); }
     .pix-test { padding:20px; margin-bottom:20px; }
@@ -512,6 +513,22 @@
         if (reserva.pix_enviado_em) detail(details,'Cobrança Pix','Envio registrado');
         card.append(details);
         const actions = el('div','actions');
+        // O link é fornecido pelo servidor; nunca construir links Meet a partir do ID.
+        if (reserva.status === 'confirmada' && !estaExcluida(reserva) &&
+            typeof reserva.google_meet_link === 'string') {
+          try {
+            const meetUrl = new URL(reserva.google_meet_link);
+            if (meetUrl.protocol === 'https:' && meetUrl.hostname === 'meet.google.com' &&
+                /^\/[a-z]{3}-[a-z]{4}-[a-z]{3}\/?$/i.test(meetUrl.pathname)) {
+              const meetButton = el('a', 'btn', '🎥 Entrar no Google Meet');
+              meetButton.href = meetUrl.toString();
+              meetButton.target = '_blank';
+              meetButton.rel = 'noopener noreferrer';
+              meetButton.title = 'Abrir o Google Meet desta aula em uma nova aba';
+              actions.append(meetButton);
+            }
+          } catch { /* Link inválido: não mostrar botão. */ }
+        }
         if (reserva.status === 'pendente') {
           const approve = el('button','btn','Aprovar e enviar Pix'); approve.type='button'; approve.disabled=aprovacaoEmAndamento || RESERVAS_TESTE_PROTEGIDAS.has(Number(reserva.id)); approve.title='Envia uma cobrança real de R$ 150,00 após confirmação'; approve.addEventListener('click', () => aprovarReserva(reserva.id));
           const reject = el('button','btn btn-danger','Recusar'); reject.type='button'; reject.disabled=true; reject.title='Função ainda não implementada';
