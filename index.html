@@ -689,8 +689,7 @@ footer strong {
   .cookie-actions { justify-content: flex-end; }
 }
 
-/* Separação uniforme entre as paisagens de fundo */
-:root { --espaco-entre-paisagens: 5px; }
+/* Nenhuma faixa entre as paisagens de fundo. */
 
 /* Ajuste exclusivo da separação entre a primeira e a segunda paisagem.
    Compensa o espaço extra criado pela barra flutuante. */
@@ -698,10 +697,10 @@ footer strong {
   margin-top: calc(-1 * var(--benefits-half-height) - 58px);
 }
 
-/* Faixa creme entre Montmartre, Paris à noite e Louvre. */
+/* Paisagens encostadas, sem faixas de separação. */
 .paris-night-background,
 .booking {
-  border-top: var(--espaco-entre-paisagens) solid var(--cream);
+  border-top: 0;
 }
 
 /* Painel de benefícios inteiramente dentro da primeira paisagem. */
