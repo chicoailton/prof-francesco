@@ -695,13 +695,37 @@ footer strong {
 /* Ajuste exclusivo da separação entre a primeira e a segunda paisagem.
    Compensa o espaço extra criado pela barra flutuante. */
 .hero + .benefits + .montmartre-background {
-  margin-top: calc(-1 * var(--benefits-half-height) - 60px);
+  margin-top: calc(-1 * var(--benefits-half-height) - 58px);
 }
 
 /* Faixa creme entre Montmartre, Paris à noite e Louvre. */
 .paris-night-background,
 .booking {
   border-top: var(--espaco-entre-paisagens) solid var(--cream);
+}
+
+/* Painel de benefícios inteiramente dentro da primeira paisagem. */
+.hero { position: relative; }
+.hero .benefits {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: calc(100% - 30px);
+  max-width: 1180px;
+  margin: 0;
+  z-index: 10;
+  background: rgba(255,255,255,.76);
+  border: 1px solid rgba(255,255,255,.70);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+}
+/* Sem margem negativa na transição para a segunda foto. */
+.hero + .montmartre-background {
+  margin-top: 0;
+}
+@media (max-width: 620px) {
+  .hero .benefits { bottom: 10px; }
 }
 </style>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -761,7 +785,6 @@ footer strong {
 </div>
 </div>
 <img alt="Ilustração do Prof Francesco com roupa de viagem" class="portrait" src="assets/prof-francesco.webp"/>
-</header>
 <div class="benefits">
 <div>
 <strong>
@@ -796,6 +819,7 @@ footer strong {
     </span>
 </div>
 </div>
+</header>
 <div class="montmartre-background">
 <section class="section" id="aulas">
 <span class="eyebrow">
