@@ -17,7 +17,7 @@
 <div id="updateView" class="hidden"><h1>Definir nova senha</h1><form id="updateForm"><label for="newPassword">Nova senha (mínimo de 12 caracteres)</label><input id="newPassword" type="password" autocomplete="new-password" minlength="12" required><button class="wide" type="submit" id="updateButton">Salvar nova senha</button></form></div>
 <div id="authMessage" class="message hidden" role="status" aria-live="polite"></div>
 </section>
-<section id="dashboard" class="hidden"><h1>Minha área de estudos</h1><p class="muted" id="welcomeText">Bem-vindo à sua área do aluno.</p><div class="grid"><article class="card"><h2>Meu pacote</h2><div class="value">—</div><p class="muted">Créditos disponíveis</p><div class="info">Os créditos serão exibidos aqui depois que conectarmos os pacotes pagos à sua conta.</div></article><article class="card"><h2>Agendar aula</h2><p class="muted">Em breve, você poderá escolher os horários disponíveis e usar os créditos do pacote.</p><button type="button" disabled>Agendamento em preparação</button></article><article class="card"><h2>Minhas aulas</h2><p class="muted">Suas próximas aulas e links do Google Meet aparecerão aqui quando ativarmos o agendamento.</p></article><article class="card"><h2>Exercícios e testes</h2><p class="muted">Aqui você encontrará atividades disponibilizadas pelo professor.</p></article></div><div id="dashboardMessage" class="message hidden" role="status"></div></section>
+<section id="dashboard" class="hidden"><h1>Minha área de estudos</h1><p class="muted" id="welcomeText">Bem-vindo à sua área do aluno.</p><div class="grid"><article class="card"><h2>Meu pacote</h2><div class="value" id="creditBalance" aria-live="polite">—</div><p class="muted">Créditos disponíveis</p><div class="info" id="creditInfo">Consultando seus créditos...</div></article><article class="card"><h2>Agendar aula</h2><p class="muted">Em breve, você poderá escolher os horários disponíveis e usar os créditos do pacote.</p><button type="button" disabled>Agendamento em preparação</button></article><article class="card"><h2>Minhas aulas</h2><p class="muted">Suas próximas aulas e links do Google Meet aparecerão aqui quando ativarmos o agendamento.</p></article><article class="card"><h2>Exercícios e testes</h2><p class="muted">Aqui você encontrará atividades disponibilizadas pelo professor.</p></article></div><div id="dashboardMessage" class="message hidden" role="status"></div></section>
 <p class="footer">Prof Francesco · Área exclusiva para alunos</p>
 </main>
 <script type="module">
@@ -30,7 +30,41 @@ let recoveryMode = false;
 function message(text,error=false){const e=$('authMessage');e.textContent=text;e.classList.toggle('error',error);e.classList.remove('hidden')}
 function clearMessage(){$('authMessage').classList.add('hidden');$('authMessage').textContent=''}
 function showView(view){for(const v of ['login','register','reset','update'])$(v+'View').classList.toggle('hidden',v!==view);clearMessage()}
-function showDashboard(user){const logged=!!user;$('authPanel').classList.toggle('hidden',logged);$('dashboard').classList.toggle('hidden',!logged);$('topActions').classList.toggle('hidden',!logged);$('userEmail').textContent=user?.email||'';$('welcomeText').textContent=user?.email?`Conta conectada: ${user.email}`:'Bem-vindo à sua área do aluno.'}
+let creditRequestVersion = 0;
+async function loadCredits(user){
+  const version = ++creditRequestVersion;
+  $('creditBalance').textContent = '—';
+  $('creditInfo').textContent = 'Consultando seus créditos...';
+  if(!user)return;
+  try{
+    const {data,error} = await supabase.rpc('meus_creditos');
+    if(version !== creditRequestVersion)return;
+    if(error)throw error;
+    const value = typeof data === 'number' ? data : (typeof data === 'string' && data.trim() !== '' ? Number(data) : NaN);
+    if(!Number.isSafeInteger(value) || value < 0)throw new Error('Saldo de créditos inválido.');
+    $('creditBalance').textContent = String(value);
+    $('creditInfo').textContent = value === 0
+      ? 'Você ainda não possui créditos disponíveis. Se já pagou, aguarde a confirmação e a liberação dos créditos.'
+      : value === 1
+        ? 'Você tem 1 aula disponível para agendar.'
+        : `Você tem ${value} aulas disponíveis para agendar.`;
+  }catch(error){
+    if(version !== creditRequestVersion)return;
+    console.error('Erro ao consultar créditos:', error);
+    $('creditBalance').textContent = '—';
+    $('creditInfo').textContent = 'Não foi possível consultar seus créditos agora. Atualize a página para tentar novamente.';
+  }
+}
+function showDashboard(user){
+  const logged=!!user;
+  $('authPanel').classList.toggle('hidden',logged);
+  $('dashboard').classList.toggle('hidden',!logged);
+  $('topActions').classList.toggle('hidden',!logged);
+  $('userEmail').textContent=user?.email||'';
+  $('welcomeText').textContent=user?.email?`Conta conectada: ${user.email}`:'Bem-vindo à sua área do aluno.';
+  if(logged)void loadCredits(user);
+  else{creditRequestVersion++;$('creditBalance').textContent='—';$('creditInfo').textContent='Consultando seus créditos...';}
+}
 function friendlyError(error){if(!error)return 'Não foi possível concluir a operação.';const m=error.message||'';if(/invalid login credentials/i.test(m))return 'E-mail ou senha incorretos.';if(/email not confirmed/i.test(m))return 'Confirme seu e-mail antes de entrar.';if(/user already registered/i.test(m))return 'Este e-mail já está cadastrado. Faça login ou recupere sua senha.';if(/password should be/i.test(m))return 'A senha não atende aos requisitos de segurança.';if(/rate limit|too many requests/i.test(m))return 'Muitas tentativas. Aguarde um pouco e tente novamente.';return m||'Não foi possível concluir a operação.'}
 async function submitWithButton(button,work){button.disabled=true;try{await work()}catch(error){message(friendlyError(error),true)}finally{button.disabled=false}}
 document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
