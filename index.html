@@ -688,6 +688,20 @@ footer strong {
   .cookie-banner { flex-direction: column; align-items: stretch; bottom: 10px; left: 10px; right: 10px; }
   .cookie-actions { justify-content: flex-end; }
 }
+
+/* Separação uniforme entre as paisagens de fundo */
+:root { --espaco-entre-paisagens: 20px; }
+
+/* Mantém a barra de benefícios flutuando sobre a primeira paisagem. */
+.hero + .benefits + .montmartre-background {
+  margin-top: var(--espaco-entre-paisagens);
+}
+
+/* Faixa creme entre Montmartre, Paris à noite e Louvre. */
+.paris-night-background,
+.booking {
+  border-top: var(--espaco-entre-paisagens) solid var(--cream);
+}
 </style>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
