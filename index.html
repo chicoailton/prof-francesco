@@ -692,9 +692,10 @@ footer strong {
 /* Separação uniforme entre as paisagens de fundo */
 :root { --espaco-entre-paisagens: 5px; }
 
-/* Mantém a barra de benefícios flutuando sobre a primeira paisagem. */
+/* Ajuste exclusivo da separação entre a primeira e a segunda paisagem.
+   Compensa o espaço extra criado pela barra flutuante. */
 .hero + .benefits + .montmartre-background {
-  margin-top: calc(-1 * var(--benefits-half-height) + var(--espaco-entre-paisagens));
+  margin-top: calc(-1 * var(--benefits-half-height) - 60px);
 }
 
 /* Faixa creme entre Montmartre, Paris à noite e Louvre. */
